@@ -18,14 +18,12 @@ GeoMentor Prompts is a **knowledge hub** that helps professionals leverage AI-dr
 4. **Contribute!** If you have a great geospatial prompt, submit a pull request.
 
 ## ⚡ Features
-
 ✅ Structured repository for easy navigation.  
 ✅ AI-driven prompt optimization for better outputs.  
 ✅ Built-in API for programmatic prompt retrieval (coming soon).  
 ✅ Collaborative knowledge-sharing for geospatial AI enthusiasts.  
 
 ## 🤝 Contributing
-
 We welcome contributions from **professionals**, **AI researchers**, and **developers**. If you have a new geospatial prompt, submit a **Pull Request (PR)** following our contribution guidelines.
 
 ## 📢 Stay Connected
