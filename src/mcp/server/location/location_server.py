@@ -119,6 +119,112 @@ def get_geocoded_metadata(address: Optional[str] = None) -> Dict:
             "metadata": geocoded_metadata
         }
 
+@mcp.tool()
+def generate_map_url(address: str, zoom_level: int = 15) -> Dict:
+    """
+    Generate map URLs for displaying geocoded locations in chat UI
+    
+    Args:
+        address: The geocoded address to generate map for
+        zoom_level: Map zoom level (default: 15)
+        
+    Returns:
+        Dictionary containing various map service URLs
+    """
+    if address not in geocoded_metadata:
+        return {"error": "Address not found in geocoded metadata. Geocode it first."}
+    
+    result = geocoded_metadata[address]
+    if not result["success"]:
+        return {"error": f"Geocoding failed for {address}: {result['error']}"}
+    
+    coords = result["coordinates"]
+    lat, lon = coords["latitude"], coords["longitude"]
+    
+    # Generate URLs for different map services
+    map_urls = {
+        "google_maps": f"https://www.google.com/maps?q={lat},{lon}&z={zoom_level}",
+        "openstreetmap": f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}&zoom={zoom_level}",
+        "arcgis": f"https://www.arcgis.com/home/webmap/viewer.html?center={lon},{lat}&level={zoom_level}",
+        "leaflet_embed": f"https://maps.wikimedia.org/en/coord/{lat},{lon},{zoom_level}",
+        "coordinates": f"{lat},{lon}",
+        "formatted_address": result["formatted_address"]
+    }
+    
+    return {
+        "success": True,
+        "address": address,
+        "map_urls": map_urls,
+        "embed_html": generate_map_embed_html(lat, lon, result["formatted_address"], zoom_level)
+    }
+
+def generate_map_embed_html(lat: float, lon: float, address: str, zoom: int = 15) -> str:
+    """Generate HTML for embedding a map in chat UI"""
+    return f"""
+    <div style="width: 100%; height: 300px; border: 1px solid #ccc; border-radius: 5px; overflow: hidden;">
+        <iframe 
+            width="100%" 
+            height="100%" 
+            frameborder="0" 
+            scrolling="no" 
+            marginheight="0" 
+            marginwidth="0" 
+            src="https://www.openstreetmap.org/export/embed.html?bbox={lon-0.01},{lat-0.01},{lon+0.01},{lat+0.01}&amp;layer=mapnik&amp;marker={lat},{lon}"
+            title="Map showing {address}">
+        </iframe>
+        <div style="padding: 8px; background: #f5f5f5; font-size: 12px; text-align: center;">
+            📍 {address} ({lat:.4f}, {lon:.4f})
+            <br>
+            <a href="https://www.google.com/maps?q={lat},{lon}" target="_blank" style="color: #1976d2;">View in Google Maps</a>
+        </div>
+    </div>
+    """
+
+@mcp.tool()
+def display_location_on_map(address: str, include_html: bool = True, zoom_level: int = 15) -> Dict:
+    """
+    Complete tool for displaying a geocoded location on a map in the chat UI
+    
+    Args:
+        address: The address to display on map
+        include_html: Whether to include HTML embed code (default: True)
+        zoom_level: Map zoom level (default: 15)
+        
+    Returns:
+        Complete map display package including URLs and embed code
+    """
+    # First geocode if not already done
+    if address not in geocoded_metadata:
+        geocode_result = geocode_address(address)
+        if not geocode_result["success"]:
+            return {
+                "success": False,
+                "error": f"Failed to geocode address: {geocode_result['error']}"
+            }
+    
+    # Generate map URLs and embed code
+    map_data = generate_map_url(address, zoom_level)
+    if "error" in map_data:
+        return {"success": False, "error": map_data["error"]}
+    
+    result = geocoded_metadata[address]
+    coords = result["coordinates"]
+    
+    display_package = {
+        "success": True,
+        "address": address,
+        "formatted_address": result["formatted_address"],
+        "coordinates": coords,
+        "map_urls": map_data["map_urls"],
+        "geocoding_score": result["score"]
+    }
+    
+    if include_html:
+        display_package["embed_html"] = map_data["embed_html"]
+        display_package["markdown_map"] = f"📍 **{result['formatted_address']}**\n\n🗺️ [View on Google Maps]({map_data['map_urls']['google_maps']})\n📐 Coordinates: `{coords['latitude']:.4f}, {coords['longitude']:.4f}`\n🎯 Accuracy Score: {result['score']}/100"
+    
+    return display_package
+
 # Add an addition tool
 @mcp.tool()
 def add(a: int, b: int) -> int:

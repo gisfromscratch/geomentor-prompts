@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src', 'mcp', 'server', 'location'))
 
-from location_server import geocode_address, geocoded_metadata, get_geocoded_metadata
+from location_server import geocode_address, geocoded_metadata, get_geocoded_metadata, generate_map_url, display_location_on_map
 
 def test_geocoding_structure():
     """Test that geocoding functions are properly structured"""
@@ -67,6 +67,43 @@ def test_error_handling():
     
     print("✓ Error handling working correctly")
 
+def test_map_functionality():
+    """Test map display functionality"""
+    print("Testing map functionality...")
+    
+    # Set up test data
+    test_address = "123 Test Street, Test City"
+    test_result = {
+        "success": True,
+        "address": test_address,
+        "formatted_address": "123 Test St, Test City, TC 12345",
+        "coordinates": {
+            "latitude": 37.4419,
+            "longitude": -122.1430
+        },
+        "score": 95,
+        "attributes": {},
+        "raw_response": {}
+    }
+    
+    geocoded_metadata[test_address] = test_result
+    
+    # Test map URL generation
+    map_data = generate_map_url(test_address)
+    assert map_data["success"] == True, "Map URL generation should succeed"
+    assert "map_urls" in map_data, "Should contain map URLs"
+    assert "google_maps" in map_data["map_urls"], "Should include Google Maps URL"
+    assert "embed_html" in map_data, "Should include embed HTML"
+    
+    # Test complete map display
+    display_data = display_location_on_map(test_address)
+    assert display_data["success"] == True, "Map display should succeed"
+    assert "coordinates" in display_data, "Should include coordinates"
+    assert "embed_html" in display_data, "Should include embed HTML"
+    assert "markdown_map" in display_data, "Should include markdown map"
+    
+    print("✓ Map functionality working correctly")
+
 def main():
     """Run all tests"""
     print("Running geocoding functionality tests...\n")
@@ -75,6 +112,7 @@ def main():
         test_geocoding_structure()
         test_metadata_storage() 
         test_error_handling()
+        test_map_functionality()
         
         print("\n✅ All tests passed! Geocoding functionality is working correctly.")
         return 0

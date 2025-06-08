@@ -43,6 +43,39 @@ Retrieves stored geocoded metadata.
 - If address specified: Geocoded data for that address
 - If no address: Summary of all geocoded data
 
+### `generate_map_url(address: str, zoom_level: int = 15)`
+Generates map URLs for displaying geocoded locations.
+
+**Parameters:**
+- `address` (str): The geocoded address to generate map for
+- `zoom_level` (int): Map zoom level (default: 15)
+
+**Returns:**
+```json
+{
+    "success": true,
+    "address": "input address",
+    "map_urls": {
+        "google_maps": "URL for Google Maps",
+        "openstreetmap": "URL for OpenStreetMap", 
+        "arcgis": "URL for ArcGIS",
+        "coordinates": "lat,lon"
+    },
+    "embed_html": "HTML for embedding map"
+}
+```
+
+### `display_location_on_map(address: str, include_html: bool = True, zoom_level: int = 15)`
+Complete tool for displaying a geocoded location on a map in the chat UI.
+
+**Parameters:**
+- `address` (str): The address to display on map
+- `include_html` (bool): Whether to include HTML embed code (default: True)
+- `zoom_level` (int): Map zoom level (default: 15)
+
+**Returns:**
+Complete map display package including coordinates, URLs, embed HTML, and markdown formatting.
+
 ## Resources Available
 
 ### `location://{address}`
@@ -67,6 +100,18 @@ metadata = get_geocoded_metadata("1600 Amphitheatre Parkway, Mountain View, CA")
 # Get all stored geocoded data
 all_data = get_geocoded_metadata()
 print(f"Total geocoded addresses: {all_data['total_geocoded']}")
+```
+
+### Map Display in Chat UI
+```python
+# Generate map URLs for a geocoded address
+map_data = generate_map_url("1600 Amphitheatre Parkway, Mountain View, CA", zoom_level=15)
+print(f"Google Maps URL: {map_data['map_urls']['google_maps']}")
+
+# Complete map display package (geocodes if needed)
+display_package = display_location_on_map("1600 Amphitheatre Parkway, Mountain View, CA")
+print(display_package['markdown_map'])  # Formatted for chat display
+print(display_package['embed_html'])    # HTML for embedding in UI
 ```
 
 ## API Integration
