@@ -1,6 +1,6 @@
 from mcp.server.fastmcp import FastMCP
+import os
 import requests
-import json
 from typing import Dict, Optional
 
 # Create an MCP server
@@ -36,6 +36,12 @@ def geocode_address(address: str, api_key: Optional[str] = None) -> Dict:
     # Add API key if provided
     if api_key:
         params["token"] = api_key
+    elif any(env_key.lower() == "arcgis_api_key" for env_key in os.environ):
+        # Use API key from environment variable if available (case-insensitive)
+        for key, value in os.environ.items():
+            if key.lower() == "arcgis_api_key":
+                params["token"] = value
+                break
     
     try:
         response = requests.get(base_url, params=params, timeout=10)
