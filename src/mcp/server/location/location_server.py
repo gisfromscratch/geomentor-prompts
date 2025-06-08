@@ -9,8 +9,6 @@ mcp = FastMCP(name="Location MCP Demo",
               version="1.0.0",
               port=8000)
 
-# Global storage for geocoded results (in a real implementation, this would be a database)
-geocoded_metadata = {}
 
 def geocode_address(address: str, api_key: Optional[str] = None) -> Dict:
     """
@@ -52,7 +50,7 @@ def geocode_address(address: str, api_key: Optional[str] = None) -> Dict:
         if data.get("candidates") and len(data["candidates"]) > 0:
             candidate = data["candidates"][0]
             
-            result = {
+            return {
                 "success": True,
                 "address": address,
                 "formatted_address": candidate.get("address", ""),
@@ -64,11 +62,6 @@ def geocode_address(address: str, api_key: Optional[str] = None) -> Dict:
                 "attributes": candidate.get("attributes", {}),
                 "raw_response": candidate
             }
-            
-            # Store in metadata
-            geocoded_metadata[address] = result
-            
-            return result
         else:
             return {
                 "success": False,
@@ -106,26 +99,6 @@ def geocode(address: str) -> Dict:
     return geocode_address(address)
 
 @mcp.tool()
-def get_geocoded_metadata(address: Optional[str] = None) -> Dict:
-    """
-    Retrieve stored geocoded metadata
-    
-    Args:
-        address: Optional specific address to retrieve. If None, returns all stored data
-        
-    Returns:
-        Geocoded metadata for the address or all stored metadata
-    """
-    if address:
-        return geocoded_metadata.get(address, {"error": "Address not found in metadata"})
-    else:
-        return {
-            "total_geocoded": len(geocoded_metadata),
-            "addresses": list(geocoded_metadata.keys()),
-            "metadata": geocoded_metadata
-        }
-
-@mcp.tool()
 def generate_map_url(address: str, zoom_level: int = 15) -> Dict:
     """
     Generate map URLs for displaying geocoded locations in chat UI
@@ -137,14 +110,11 @@ def generate_map_url(address: str, zoom_level: int = 15) -> Dict:
     Returns:
         Dictionary containing various map service URLs
     """
-    if address not in geocoded_metadata:
-        return {"error": "Address not found in geocoded metadata. Geocode it first."}
+    geocode_result = geocode_address(address)
+    if not geocode_result["success"]:
+        return {"error": f"Geocoding failed for {address}: {geocode_result['error']}"}
     
-    result = geocoded_metadata[address]
-    if not result["success"]:
-        return {"error": f"Geocoding failed for {address}: {result['error']}"}
-    
-    coords = result["coordinates"]
+    coords = geocode_result["coordinates"]
     lat, lon = coords["latitude"], coords["longitude"]
     
     # Generate URLs for different map services
@@ -153,14 +123,14 @@ def generate_map_url(address: str, zoom_level: int = 15) -> Dict:
         "openstreetmap": f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}&zoom={zoom_level}",
         "arcgis": f"https://www.arcgis.com/home/webmap/viewer.html?center={lon},{lat}&level={zoom_level}",
         "coordinates": f"{lat},{lon}",
-        "formatted_address": result["formatted_address"]
+        "formatted_address": geocode_result["formatted_address"]
     }
     
     return {
         "success": True,
         "address": address,
         "map_urls": map_urls,
-        "embed_html": generate_map_embed_html(lat, lon, result["formatted_address"], zoom_level)
+        "embed_html": generate_map_embed_html(lat, lon, geocode_result["formatted_address"], zoom_level)
     }
 
 def generate_map_embed_html(lat: float, lon: float, address: str, zoom: int = 15) -> str:
@@ -198,35 +168,31 @@ def display_location_on_map(address: str, include_html: bool = True, zoom_level:
     Returns:
         Complete map display package including URLs and embed code
     """
-    # First geocode if not already done
-    if address not in geocoded_metadata:
-        geocode_result = geocode_address(address)
-        if not geocode_result["success"]:
-            return {
-                "success": False,
-                "error": f"Failed to geocode address: {geocode_result['error']}"
-            }
+    geocode_result = geocode_address(address)
+    if not geocode_result["success"]:
+        return {
+            "success": False,
+            "error": f"Failed to geocode address: {geocode_result['error']}"
+        }
     
-    # Generate map URLs and embed code
     map_data = generate_map_url(address, zoom_level)
     if "error" in map_data:
         return {"success": False, "error": map_data["error"]}
     
-    result = geocoded_metadata[address]
-    coords = result["coordinates"]
+    coords = geocode_result["coordinates"]
     
     display_package = {
         "success": True,
         "address": address,
-        "formatted_address": result["formatted_address"],
+        "formatted_address": geocode_result["formatted_address"],
         "coordinates": coords,
         "map_urls": map_data["map_urls"],
-        "geocoding_score": result["score"]
+        "geocoding_score": geocode_result["score"]
     }
     
     if include_html:
         display_package["embed_html"] = map_data["embed_html"]
-        display_package["markdown_map"] = f"📍 **{result['formatted_address']}**\n\n🗺️ [View on Google Maps]({map_data['map_urls']['google_maps']})\n📐 Coordinates: `{coords['latitude']:.4f}, {coords['longitude']:.4f}`\n🎯 Accuracy Score: {result['score']}/100"
+        display_package["markdown_map"] = f"📍 **{geocode_result['formatted_address']}**\n\n🗺️ [View on Google Maps]({map_data['map_urls']['google_maps']})\n📐 Coordinates: `{coords['latitude']:.4f}, {coords['longitude']:.4f}`\n🎯 Accuracy Score: {geocode_result['score']}/100"
     
     return display_package
 
@@ -246,15 +212,12 @@ def get_greeting(name: str) -> str:
 @mcp.resource("location://{address}")
 def get_location_info(address: str) -> str:
     """Get location information for an address"""
-    if address in geocoded_metadata:
-        result = geocoded_metadata[address]
-        if result["success"]:
-            coords = result["coordinates"]
-            return f"Location: {result['formatted_address']}\nCoordinates: {coords['latitude']}, {coords['longitude']}\nScore: {result['score']}"
-        else:
-            return f"Geocoding failed for {address}: {result['error']}"
+    geocode_result = geocode_address(address)
+    if geocode_result["success"]:
+        coords = geocode_result["coordinates"]
+        return f"Location: {geocode_result['formatted_address']}\nCoordinates: {coords['latitude']}, {coords['longitude']}\nScore: {geocode_result['score']}"
     else:
-        return f"No geocoding data available for {address}. Use the geocode tool first."
+        return f"Geocoding failed for {address}: {geocode_result['error']}"
     
 
 if __name__ == "__main__":
