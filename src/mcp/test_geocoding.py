@@ -5,7 +5,7 @@ Simple test script for geocoding functionality
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src', 'mcp', 'server', 'location'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'server', 'location'))
 
 from location_server import geocode_address, geocoded_metadata, get_geocoded_metadata, generate_map_url, display_location_on_map
 
