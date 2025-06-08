@@ -2,6 +2,7 @@ from mcp.server.fastmcp import FastMCP
 import os
 import requests
 from typing import Dict, Optional
+from location_config import ArcGISApiKeyManager
 
 # Create an MCP server
 mcp = FastMCP(name="Location MCP Demo", 
@@ -31,15 +32,8 @@ def geocode_address(address: str, api_key: Optional[str] = None) -> Dict:
         "maxLocations": 1
     }
     
-    # Add API key if provided
-    if api_key:
-        params["token"] = api_key
-    elif any(env_key.lower() == "arcgis_api_key" for env_key in os.environ):
-        # Use API key from environment variable if available (case-insensitive)
-        for key, value in os.environ.items():
-            if key.lower() == "arcgis_api_key":
-                params["token"] = value
-                break
+    # Add API key to parameters if provided
+    ArcGISApiKeyManager.add_key_to_params(params, api_key)
     
     try:
         response = requests.get(base_url, params=params, timeout=10)
