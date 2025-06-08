@@ -33,16 +33,6 @@ Geocodes an address and returns coordinates with metadata.
 }
 ```
 
-### `get_geocoded_metadata(address: Optional[str])`
-Retrieves stored geocoded metadata.
-
-**Parameters:**
-- `address` (str, optional): Specific address to retrieve. If None, returns all stored data
-
-**Returns:**
-- If address specified: Geocoded data for that address
-- If no address: Summary of all geocoded data
-
 ### `generate_map_url(address: str, zoom_level: int = 15)`
 Generates map URLs for displaying geocoded locations.
 
@@ -92,16 +82,6 @@ result = geocode("1600 Amphitheatre Parkway, Mountain View, CA")
 print(f"Coordinates: {result['coordinates']['latitude']}, {result['coordinates']['longitude']}")
 ```
 
-### Retrieving Stored Data
-```python
-# Get specific address metadata
-metadata = get_geocoded_metadata("1600 Amphitheatre Parkway, Mountain View, CA")
-
-# Get all stored geocoded data
-all_data = get_geocoded_metadata()
-print(f"Total geocoded addresses: {all_data['total_geocoded']}")
-```
-
 ### Map Display in Chat UI
 ```python
 # Generate map URLs for a geocoded address
@@ -117,7 +97,7 @@ print(display_package['embed_html'])    # HTML for embedding in UI
 ## API Integration
 The service uses ArcGIS Location Platform Geocoding Services. For production use:
 
-1. Obtain an API key from [ArcGIS Developers](https://developers.arcgis.com/)
+1. Obtain an API key from [ArcGIS Location Platform](https://location.arcgis.com/)
 2. Pass the API key to the geocoding function
 3. Monitor usage to stay within API limits
 
