@@ -152,7 +152,6 @@ def generate_map_url(address: str, zoom_level: int = 15) -> Dict:
         "google_maps": f"https://www.google.com/maps?q={lat},{lon}&z={zoom_level}",
         "openstreetmap": f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}&zoom={zoom_level}",
         "arcgis": f"https://www.arcgis.com/home/webmap/viewer.html?center={lon},{lat}&level={zoom_level}",
-        "leaflet_embed": f"https://maps.wikimedia.org/en/coord/{lat},{lon},{zoom_level}",
         "coordinates": f"{lat},{lon}",
         "formatted_address": result["formatted_address"]
     }
