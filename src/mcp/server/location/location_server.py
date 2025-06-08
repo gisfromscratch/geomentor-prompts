@@ -1,5 +1,4 @@
 from mcp.server.fastmcp import FastMCP
-import os
 import requests
 from typing import Dict, Optional
 from location_config import ArcGISApiKeyManager
