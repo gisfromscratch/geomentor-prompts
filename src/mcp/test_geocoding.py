@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'server', 'location'))
 
-from location_server import geocode_address, geocoded_metadata, get_geocoded_metadata, generate_map_url, display_location_on_map
+from location_server import geocode_address, generate_map_url, display_location_on_map
 
 def test_geocoding_structure():
     """Test that geocoding functions are properly structured"""
@@ -15,45 +15,8 @@ def test_geocoding_structure():
     
     # Test that functions exist and are callable
     assert callable(geocode_address), "geocode_address should be callable"
-    assert callable(get_geocoded_metadata), "get_geocoded_metadata should be callable"
-    assert isinstance(geocoded_metadata, dict), "geocoded_metadata should be a dictionary"
     
     print("✓ All geocoding functions are properly structured")
-
-def test_metadata_storage():
-    """Test metadata storage functionality"""
-    print("Testing metadata storage...")
-    
-    # Clear any existing metadata
-    geocoded_metadata.clear()
-    
-    # Simulate storing geocoded result
-    test_address = "123 Test Street, Test City"
-    test_result = {
-        "success": True,
-        "address": test_address,
-        "formatted_address": "123 Test St, Test City, TC 12345",
-        "coordinates": {
-            "latitude": 37.4419,
-            "longitude": -122.1430
-        },
-        "score": 95,
-        "attributes": {},
-        "raw_response": {}
-    }
-    
-    geocoded_metadata[test_address] = test_result
-    
-    # Test retrieval
-    retrieved = get_geocoded_metadata(test_address)
-    assert retrieved == test_result, "Retrieved metadata should match stored metadata"
-    
-    # Test getting all metadata
-    all_metadata = get_geocoded_metadata()
-    assert all_metadata["total_geocoded"] == 1, "Should have 1 geocoded address"
-    assert test_address in all_metadata["addresses"], "Test address should be in address list"
-    
-    print("✓ Metadata storage and retrieval working correctly")
 
 def test_error_handling():
     """Test error handling in geocoding"""
@@ -86,8 +49,6 @@ def test_map_functionality():
         "raw_response": {}
     }
     
-    geocoded_metadata[test_address] = test_result
-    
     # Test map URL generation
     map_data = generate_map_url(test_address)
     assert map_data["success"] == True, "Map URL generation should succeed"
@@ -110,7 +71,6 @@ def main():
     
     try:
         test_geocoding_structure()
-        test_metadata_storage() 
         test_error_handling()
         test_map_functionality()
         
