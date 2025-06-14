@@ -1,16 +1,77 @@
-# Geocoding Service Documentation
+# Location Services Documentation
 
 ## Overview
-The Location MCP Server includes both forward and reverse geocoding functionality using ArcGIS Location Platform Geocoding Services to convert between addresses and geographic coordinates.
+The Location MCP Server provides comprehensive location-based services using ArcGIS Location Platform, including geocoding, reverse geocoding, and nearby places search functionality.
 
 ## Features
 - **Address Geocoding**: Convert text addresses to latitude/longitude coordinates
 - **Reverse Geocoding**: Convert latitude/longitude coordinates to readable addresses
+- **Nearby Places Search**: Find places of interest around a location with category filtering
+- **Interactive Maps**: Generate embeddable maps for chat UI display
 - **Metadata Storage**: Store geocoded results for efficient retrieval
-- **Error Handling**: Robust error handling for failed geocoding attempts
+- **Error Handling**: Robust error handling for failed API requests
 - **Resource Endpoints**: Access location data through MCP resources
 
 ## Tools Available
+
+### `find_places(location: str, category: Optional[str] = None, radius: int = 1000, max_results: int = 10)`
+Find nearby places around a given location with optional category filtering.
+
+**Parameters:**
+- `location` (str): Address or location description to search around
+- `category` (Optional[str]): Category filter (e.g., 'restaurant', 'gas_station', 'park', 'hotel', 'hospital')
+- `radius` (int): Search radius in meters (default: 1000m, max: 50000m)
+- `max_results` (int): Maximum number of results to return (default: 10, max: 50)
+
+**Returns:**
+```json
+{
+    "success": true,
+    "search_query": {
+        "location": "Original location input",
+        "geocoded_address": "Standardized address",
+        "coordinates": {"latitude": 37.4419, "longitude": -122.1430},
+        "category_filter": "restaurant",
+        "radius_meters": 1000,
+        "max_results": 10
+    },
+    "results": {
+        "total_found": 5,
+        "places": [
+            {
+                "name": "Place Name",
+                "place_id": "unique_id",
+                "categories": ["restaurant", "food"],
+                "address": "123 Main St, City, State",
+                "coordinates": {"latitude": 37.4420, "longitude": -122.1431},
+                "distance": 150,
+                "phone": "+1-234-567-8900",
+                "website": "https://example.com",
+                "rating": 4.5,
+                "price_level": "$$"
+            }
+        ]
+    },
+    "map_visualization": {
+        "search_center_urls": {...},
+        "search_area_html": "HTML for embedding map"
+    },
+    "chat_summary": "Found 5 places in category 'restaurant' within 1000m..."
+}
+```
+
+### `find_places_by_coordinates(latitude: float, longitude: float, category: Optional[str] = None, radius: int = 1000, max_results: int = 10)`
+Find nearby places around specific coordinates with optional category filtering.
+
+**Parameters:**
+- `latitude` (float): Latitude coordinate to search around
+- `longitude` (float): Longitude coordinate to search around  
+- `category` (Optional[str]): Category filter (e.g., 'restaurant', 'gas_station', 'park')
+- `radius` (int): Search radius in meters (default: 1000m, max: 50000m)
+- `max_results` (int): Maximum number of results to return (default: 10, max: 50)
+
+**Returns:**
+Similar structure to `find_places` but with coordinate-based search query information.
 
 ### `geocode(address: str)`
 Geocodes an address and returns coordinates with metadata.
@@ -107,6 +168,16 @@ Get address information for coordinates.
 
 **Example:** `reverse_geocode://37.4219999,-122.0840575`
 
+### `places://{location}`
+Get places information near a location address.
+
+**Example:** `places://Times Square, New York, NY`
+
+### `places://{latitude},{longitude}`
+Get places information near specific coordinates.
+
+**Example:** `places://40.7589,-73.9851`
+
 ## Usage Examples
 
 ### Basic Geocoding
@@ -125,6 +196,22 @@ print(f"City: {result['address_components']['city']}")
 print(f"State: {result['address_components']['state']}")
 ```
 
+### Nearby Places Search
+```python
+# Find restaurants near a specific address
+places_result = find_places("Times Square, New York, NY", category="restaurant", radius=500, max_results=5)
+print(f"Found {places_result['results']['total_found']} restaurants")
+for place in places_result['results']['places']:
+    print(f"- {place['name']}: {place['address']} ({place['distance']}m away)")
+
+# Display places on an interactive map
+print(places_result['map_visualization']['search_area_html'])  # HTML for embedding
+
+# Find any type of place near coordinates
+all_places = find_places_by_coordinates(40.7589, -73.9851, radius=1000, max_results=20)
+print(all_places['chat_summary'])  # Human-friendly summary
+```
+
 ### Map Display in Chat UI
 ```python
 # Generate map URLs for a geocoded address
@@ -138,6 +225,31 @@ print(display_package['embed_html'])    # HTML for embedding in UI
 ```
 
 ## API Integration
+
+### ArcGIS Location Platform
+This service integrates with ArcGIS Location Platform for:
+- **Geocoding Service**: World Geocoding Service for address resolution
+- **Places Service**: Places API for nearby points of interest search
+- **API Key Management**: Automatic handling of API keys via environment variables
+
+### Supported Place Categories
+The places search supports category filtering with values like:
+- `restaurant` - Restaurants and food establishments
+- `gas_station` - Gas stations and fuel services  
+- `park` - Parks and recreational areas
+- `hotel` - Hotels and accommodations
+- `hospital` - Hospitals and medical facilities
+- `pharmacy` - Pharmacies and drug stores
+- `bank` - Banks and financial services
+- `shopping_mall` - Shopping centers and malls
+- `school` - Schools and educational institutions
+- `tourist_attraction` - Tourist attractions and landmarks
+
+### Authentication
+API authentication is handled through the `ArcGISApiKeyManager` which looks for:
+- Environment variable: `ARCGIS_API_KEY`
+- Falls back to free tier services when no API key is provided
+- API key can be explicitly passed to functions for custom authentication
 The service uses ArcGIS Location Platform Geocoding Services. For production use:
 
 1. Obtain an API key from [ArcGIS Location Platform](https://location.arcgis.com/)
