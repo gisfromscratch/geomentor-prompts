@@ -78,6 +78,89 @@ def geocode_address(address: str, api_key: Optional[str] = None) -> Dict:
             "coordinates": None
         }
 
+def reverse_geocode_coordinates(latitude: float, longitude: float, api_key: Optional[str] = None) -> Dict:
+    """
+    Reverse geocode coordinates using ArcGIS Location Platform Reverse Geocoding Services
+    
+    Args:
+        latitude: The latitude coordinate
+        longitude: The longitude coordinate
+        api_key: Optional API key for ArcGIS services (uses free service if not provided)
+    
+    Returns:
+        Dictionary containing reverse geocoded result with address and metadata
+    """
+    # ArcGIS World Geocoding Service reverse geocoding endpoint
+    base_url = "https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode"
+    
+    params = {
+        "location": f"{longitude},{latitude}",  # ArcGIS expects x,y (lon,lat) format
+        "f": "json",
+        "outSR": "4326",  # WGS84 spatial reference
+        "returnIntersection": "false"
+    }
+    
+    # Add API key to parameters if provided
+    ArcGISApiKeyManager.add_key_to_params(params, api_key)
+    
+    try:
+        response = requests.get(base_url, params=params, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        if data.get("address"):
+            address_info = data["address"]
+            
+            return {
+                "success": True,
+                "coordinates": {
+                    "latitude": latitude,
+                    "longitude": longitude
+                },
+                "formatted_address": address_info.get("Match_addr", ""),
+                "address_components": {
+                    "street": address_info.get("Address", ""),
+                    "city": address_info.get("City", ""),
+                    "state": address_info.get("Region", ""),
+                    "postal_code": address_info.get("Postal", ""),
+                    "country": address_info.get("CountryCode", "")
+                },
+                "location_type": data.get("location", {}).get("spatialReference", {}).get("wkid", ""),
+                "raw_response": data
+            }
+        else:
+            return {
+                "success": False,
+                "coordinates": {
+                    "latitude": latitude,
+                    "longitude": longitude
+                },
+                "error": "No reverse geocoding results found",
+                "formatted_address": None
+            }
+            
+    except requests.RequestException as e:
+        return {
+            "success": False,
+            "coordinates": {
+                "latitude": latitude,
+                "longitude": longitude
+            },
+            "error": f"Reverse geocoding request failed: {str(e)}",
+            "formatted_address": None
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "coordinates": {
+                "latitude": latitude,
+                "longitude": longitude
+            },
+            "error": f"Reverse geocoding error: {str(e)}",
+            "formatted_address": None
+        }
+
 @mcp.tool()
 def geocode(address: str) -> Dict:
     """
@@ -90,6 +173,20 @@ def geocode(address: str) -> Dict:
         Geocoded result with coordinates and metadata
     """
     return geocode_address(address)
+
+@mcp.tool()
+def reverse_geocode(latitude: float, longitude: float) -> Dict:
+    """
+    Reverse geocode coordinates to get address and location information
+    
+    Args:
+        latitude: The latitude coordinate (e.g., 37.4419)
+        longitude: The longitude coordinate (e.g., -122.1430)
+        
+    Returns:
+        Reverse geocoded result with address and metadata
+    """
+    return reverse_geocode_coordinates(latitude, longitude)
 
 @mcp.tool()
 def generate_map_url(address: str, zoom_level: int = 15) -> Dict:
@@ -211,6 +308,22 @@ def get_location_info(address: str) -> str:
         return f"Location: {geocode_result['formatted_address']}\nCoordinates: {coords['latitude']}, {coords['longitude']}\nScore: {geocode_result['score']}"
     else:
         return f"Geocoding failed for {address}: {geocode_result['error']}"
+
+# Add a reverse geocoding resource for displaying address data from coordinates
+@mcp.resource("reverse_geocode://{latitude},{longitude}")
+def get_reverse_geocode_info(latitude: str, longitude: str) -> str:
+    """Get address information for coordinates"""
+    try:
+        lat = float(latitude)
+        lon = float(longitude)
+        reverse_result = reverse_geocode_coordinates(lat, lon)
+        if reverse_result["success"]:
+            address_components = reverse_result["address_components"]
+            return f"Address: {reverse_result['formatted_address']}\nCoordinates: {lat}, {lon}\nStreet: {address_components['street']}\nCity: {address_components['city']}\nState: {address_components['state']}\nCountry: {address_components['country']}"
+        else:
+            return f"Reverse geocoding failed for {lat}, {lon}: {reverse_result['error']}"
+    except ValueError:
+        return f"Invalid coordinates: {latitude}, {longitude}"
     
 
 if __name__ == "__main__":

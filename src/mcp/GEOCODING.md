@@ -1,10 +1,11 @@
 # Geocoding Service Documentation
 
 ## Overview
-The Location MCP Server now includes geocoding functionality using ArcGIS Location Platform Geocoding Services to convert user-entered addresses into geographic coordinates.
+The Location MCP Server includes both forward and reverse geocoding functionality using ArcGIS Location Platform Geocoding Services to convert between addresses and geographic coordinates.
 
 ## Features
 - **Address Geocoding**: Convert text addresses to latitude/longitude coordinates
+- **Reverse Geocoding**: Convert latitude/longitude coordinates to readable addresses
 - **Metadata Storage**: Store geocoded results for efficient retrieval
 - **Error Handling**: Robust error handling for failed geocoding attempts
 - **Resource Endpoints**: Access location data through MCP resources
@@ -29,6 +30,34 @@ Geocodes an address and returns coordinates with metadata.
     },
     "score": 95,
     "attributes": {},
+    "raw_response": {}
+}
+```
+
+### `reverse_geocode(latitude: float, longitude: float)`
+Reverse geocodes coordinates to get address and location information.
+
+**Parameters:**
+- `latitude` (float): The latitude coordinate (e.g., 37.4419)
+- `longitude` (float): The longitude coordinate (e.g., -122.1430)
+
+**Returns:**
+```json
+{
+    "success": true,
+    "coordinates": {
+        "latitude": 37.4219999,
+        "longitude": -122.0840575
+    },
+    "formatted_address": "1600 Amphitheatre Parkway, Mountain View, CA 94043, USA",
+    "address_components": {
+        "street": "1600 Amphitheatre Parkway",
+        "city": "Mountain View",
+        "state": "CA",
+        "postal_code": "94043",
+        "country": "USA"
+    },
+    "location_type": "4326",
     "raw_response": {}
 }
 ```
@@ -73,6 +102,11 @@ Get formatted location information for a geocoded address.
 
 **Example:** `location://1600 Amphitheatre Parkway, Mountain View, CA`
 
+### `reverse_geocode://{latitude},{longitude}`
+Get address information for coordinates.
+
+**Example:** `reverse_geocode://37.4219999,-122.0840575`
+
 ## Usage Examples
 
 ### Basic Geocoding
@@ -80,6 +114,15 @@ Get formatted location information for a geocoded address.
 # Using the geocode tool
 result = geocode("1600 Amphitheatre Parkway, Mountain View, CA")
 print(f"Coordinates: {result['coordinates']['latitude']}, {result['coordinates']['longitude']}")
+```
+
+### Reverse Geocoding
+```python
+# Using the reverse_geocode tool
+result = reverse_geocode(37.4219999, -122.0840575)
+print(f"Address: {result['formatted_address']}")
+print(f"City: {result['address_components']['city']}")
+print(f"State: {result['address_components']['state']}")
 ```
 
 ### Map Display in Chat UI
