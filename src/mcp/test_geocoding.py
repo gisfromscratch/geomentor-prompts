@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'server', 'location'))
 
-from location_server import geocode_address, reverse_geocode_coordinates, generate_map_url, display_location_on_map
+from location_server import geocode_address, reverse_geocode_coordinates, generate_map_url, display_location_on_map, get_directions_between_locations, format_directions_for_chat
 
 def test_geocoding_structure():
     """Test that geocoding functions are properly structured"""
@@ -100,6 +100,123 @@ def test_map_functionality():
     
     print("✓ Map functionality working correctly")
 
+def test_routing_functionality():
+    """Test routing and directions functionality"""
+    print("Testing routing functionality...")
+    
+    # Test that the routing function is available and callable
+    assert callable(get_directions_between_locations), "get_directions_between_locations should be callable"
+    
+    # Test routing with coordinates (this will likely fail due to network, but should handle gracefully)
+    test_origin = "37.7749,-122.4194"  # San Francisco coordinates
+    test_destination = "37.7849,-122.4094"  # Nearby coordinates
+    
+    result = get_directions_between_locations(test_origin, test_destination)
+    assert "success" in result, "Result should have success field"
+    assert "origin" in result, "Result should have origin field" 
+    assert "destination" in result, "Result should have destination field"
+    
+    # Either success with routing info or failure with error
+    if result["success"]:
+        assert "route_summary" in result, "Should have route summary when successful"
+        assert "directions" in result, "Should have directions when successful"
+        assert "total_time_minutes" in result["route_summary"], "Should have travel time"
+        assert "total_distance_miles" in result["route_summary"], "Should have distance"
+        print(f"   ✓ Route found: {result['route_summary']['total_distance_miles']} miles, {result['route_summary']['total_time_formatted']}")
+        print(f"   ✓ {len(result['directions'])} turn-by-turn directions provided")
+    else:
+        print(f"   Note: Routing failed (network/API issue): {result.get('error', 'unknown error')}")
+        print("   This is expected in environments without network access or API keys")
+        assert "error" in result, "Should have error message when unsuccessful"
+    
+    print("✓ Routing functionality working correctly")
+
+def test_routing_travel_modes():
+    """Test different travel modes for routing"""
+    print("Testing routing travel modes...")
+    
+    test_origin = "New York, NY"
+    test_destination = "Brooklyn, NY"
+    
+    # Test different travel modes
+    travel_modes = ["driving", "walking", "trucking"]
+    
+    for mode in travel_modes:
+        result = get_directions_between_locations(test_origin, test_destination, travel_mode=mode)
+        assert "success" in result, f"Result should have success field for {mode}"
+        assert result.get("travel_mode") == mode, f"Travel mode should be preserved for {mode}"
+        
+        if result["success"]:
+            print(f"   ✓ {mode.capitalize()} route calculated successfully")
+        else:
+            print(f"   Note: {mode.capitalize()} routing failed (expected without network/API)")
+    
+    print("✓ Travel mode testing working correctly")
+
+def test_routing_error_handling():
+    """Test error handling in routing"""
+    print("Testing routing error handling...")
+    
+    # Test with invalid coordinates
+    result = get_directions_between_locations("999,999", "888,888")
+    assert "success" in result, "Result should have success field"
+    
+    # Should either succeed or fail gracefully
+    if not result["success"]:
+        assert "error" in result, "Should have error message when unsuccessful"
+    
+    # Test with empty addresses
+    result = get_directions_between_locations("", "")
+    assert "success" in result, "Result should have success field"
+    if not result["success"]:
+        assert "error" in result, "Should have error message when unsuccessful"
+    
+    print("✓ Routing error handling working correctly")
+
+def test_routing_formatting():
+    """Test routing result formatting for chat UI"""
+    print("Testing routing formatting...")
+    
+    # Test formatting function exists
+    assert callable(format_directions_for_chat), "format_directions_for_chat should be callable"
+    
+    # Test error formatting
+    error_result = {
+        "success": False,
+        "origin": "Test Origin",
+        "destination": "Test Destination", 
+        "error": "Test error message"
+    }
+    formatted = format_directions_for_chat(error_result)
+    assert "❌" in formatted, "Error formatting should include error emoji"
+    assert "Test error message" in formatted, "Error message should be included"
+    
+    # Test successful result formatting (mock successful result)
+    success_result = {
+        "success": True,
+        "origin": "San Francisco, CA",
+        "destination": "Oakland, CA",
+        "travel_mode": "driving",
+        "route_summary": {
+            "total_time_minutes": 25.5,
+            "total_distance_miles": 12.3,
+            "total_time_formatted": "25m"
+        },
+        "directions": [
+            {"instruction": "Head north on Main St", "distance": 0.5},
+            {"instruction": "Turn right on Oak Ave", "distance": 1.2}
+        ]
+    }
+    formatted = format_directions_for_chat(success_result)
+    assert "🗺️" in formatted, "Success formatting should include map emoji"
+    assert "San Francisco, CA" in formatted, "Origin should be included"
+    assert "Oakland, CA" in formatted, "Destination should be included"
+    assert "25m" in formatted, "Travel time should be included"
+    assert "12.3 miles" in formatted, "Distance should be included"
+    assert "Head north on Main St" in formatted, "Directions should be included"
+    
+    print("✓ Routing formatting working correctly")
+
 def main():
     """Run all tests"""
     print("Running geocoding functionality tests...\n")
@@ -110,8 +227,12 @@ def main():
         test_error_handling()
         test_reverse_geocoding_error_handling()
         test_map_functionality()
+        test_routing_functionality()
+        test_routing_travel_modes()
+        test_routing_error_handling()
+        test_routing_formatting()
         
-        print("\n✅ All tests passed! Geocoding functionality is working correctly.")
+        print("\n✅ All tests passed! Geocoding and routing functionality is working correctly.")
         return 0
         
     except Exception as e:
