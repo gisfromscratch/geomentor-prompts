@@ -1,20 +1,20 @@
 # Location Services Documentation
 
 ## Overview
-The Location MCP Server includes geocoding, reverse geocoding, map display, routing functionality, and nearby places search using ArcGIS Location Platform services to provide comprehensive location-based services.
+The Location MCP Server includes geocoding, reverse geocoding, elevation data services, map display, routing functionality, and nearby places search using ArcGIS Location Platform services to provide comprehensive location-based services including coordinate conversion, elevation information, and point-of-interest discovery.
 
 ## Features
 - **Address Geocoding**: Convert text addresses to latitude/longitude coordinates
 - **Reverse Geocoding**: Convert latitude/longitude coordinates to readable addresses
+- **Elevation Services**: Get elevation data for coordinates or addresses
 - **Routing & Directions**: Get turn-by-turn directions between locations with travel time and distance
 - **Map Display**: Generate map URLs and embed HTML for various mapping services
 - **Interactive Maps**: Generate embeddable maps for chat UI display
 - **Nearby Places Search**: Find places of interest around a location with category filtering
-- **Metadata Storage**: Store geocoded and routing results for efficient retrieval
+- **Metadata Storage**: Store geocoded, elevation, and routing results for efficient retrieval
 - **Error Handling**: Robust error handling for failed requests
-- **Metadata Storage**: Store geocoded results for efficient retrieval
-- **Error Handling**: Robust error handling for failed API requests
-- **Resource Endpoints**: Access location data through MCP resources
+- **Resource Endpoints**: Access location, elevation, and places data through MCP resources
+- **Chat UI Integration**: Display maps, elevation data, and directions in chat interfaces
 
 ## Tools Available
 
@@ -160,6 +160,30 @@ Complete tool for displaying a geocoded location on a map in the chat UI.
 **Returns:**
 Complete map display package including coordinates, URLs, embed HTML, and markdown formatting.
 
+### `get_elevation_for_coordinates(latitude: float, longitude: float)`
+Get elevation data for specific coordinates.
+
+**Parameters:**
+- `latitude` (float): The latitude coordinate (e.g., 37.4419)
+- `longitude` (float): The longitude coordinate (e.g., -122.1430)
+
+**Returns:**
+```json
+{
+    "success": true,
+    "coordinates": {
+        "latitude": 37.4419,
+        "longitude": -122.1430
+    },
+    "elevation": {
+        "meters": 1416.25,
+        "feet": 4647.31
+    },
+    "data_source": "ArcGIS Location Platform Elevation Service",
+    "raw_response": {}
+}
+```
+
 ### `get_directions(origin: str, destination: str, travel_mode: str = "driving")`
 Get directions and routing information between two locations.
 
@@ -194,6 +218,41 @@ Get directions and routing information between two locations.
 }
 ```
 
+### `get_elevation_for_address(address: str)`
+Get elevation data for an address by first geocoding it.
+
+**Parameters:**
+- `address` (str): The address string to get elevation for
+
+**Returns:**
+```json
+{
+    "success": true,
+    "address": "input address",
+    "formatted_address": "geocoded address",
+    "coordinates": {
+        "latitude": 37.4419,
+        "longitude": -122.1430
+    },
+    "elevation": {
+        "meters": 1416.25,
+        "feet": 4647.31
+    },
+    "data_source": "ArcGIS Location Platform Elevation Service",
+    "geocoding_score": 85
+}
+```
+
+### `display_location_with_elevation(address: str, include_html: bool = True, zoom_level: int = 15)`
+Complete tool for displaying a geocoded location with elevation data in the chat UI.
+
+**Parameters:**
+- `address` (str): The address to display on map with elevation
+- `include_html` (bool): Whether to include HTML embed code (default: True)
+- `zoom_level` (int): Map zoom level (default: 15)
+
+**Returns:**
+Complete display package including coordinates, elevation, map URLs, embed HTML, and markdown formatting with elevation information.
 ## Resources Available
 
 ### `location://{address}`
@@ -205,6 +264,16 @@ Get formatted location information for a geocoded address.
 Get address information for coordinates.
 
 **Example:** `reverse_geocode://37.4219999,-122.0840575`
+
+### `elevation://{latitude},{longitude}`
+Get elevation information for coordinates.
+
+**Example:** `elevation://37.4219999,-122.0840575`
+
+### `elevation_address://{address}`
+Get elevation information for an address.
+
+**Example:** `elevation_address://Mount Washington, New Hampshire`
 
 ### `places://{location}`
 Get places information near a location address.
@@ -232,6 +301,18 @@ result = reverse_geocode(37.4219999, -122.0840575)
 print(f"Address: {result['formatted_address']}")
 print(f"City: {result['address_components']['city']}")
 print(f"State: {result['address_components']['state']}")
+```
+
+### Elevation Lookup
+```python
+# Get elevation for coordinates
+elevation = get_elevation_for_coordinates(36.5786, -118.2923)  # Mount Whitney
+print(f"Elevation: {elevation['elevation']['meters']} m ({elevation['elevation']['feet']} ft)")
+
+# Get elevation for an address
+elevation = get_elevation_for_address("Mount Washington, New Hampshire")
+print(f"Address: {elevation['formatted_address']}")
+print(f"Elevation: {elevation['elevation']['meters']} m")
 ```
 
 ### Nearby Places Search
@@ -262,6 +343,13 @@ print(display_package['markdown_map'])  # Formatted for chat display
 print(display_package['embed_html'])    # HTML for embedding in UI
 ```
 
+### Location with Elevation Display
+```python
+# Complete display package with elevation data
+elevation_display = display_location_with_elevation("Denver, Colorado")
+print(elevation_display['markdown_map'])  # Includes elevation in markdown format
+```
+
 ### Routing & Directions
 ```python
 # Get driving directions between two locations
@@ -280,12 +368,14 @@ if walking_dirs['success']:
 ```
 
 ## API Integration
-The service uses ArcGIS Location Platform services for geocoding and routing. For production use:
+The service uses ArcGIS Location Platform services for geocoding, elevation, routing, and places search. For production use:
 
 ### ArcGIS Location Platform
 This service integrates with ArcGIS Location Platform for:
 - **Geocoding Service**: World Geocoding Service for address resolution
+- **Elevation Service**: Point Elevation service for terrain data  
 - **Places Service**: Places API for nearby points of interest search
+- **Routing Service**: World Route Service for directions and travel information
 - **API Key Management**: Automatic handling of API keys via environment variables
 
 ### Supported Place Categories
@@ -306,15 +396,16 @@ API authentication is handled through the `ArcGISApiKeyManager` which looks for:
 - Environment variable: `ARCGIS_API_KEY`
 - Falls back to free tier services when no API key is provided
 - API key can be explicitly passed to functions for custom authentication
-The service uses ArcGIS Location Platform Geocoding Services. For production use:
 
 1. Obtain an API key from [ArcGIS Location Platform](https://location.arcgis.com/)
-2. Pass the API key to the geocoding and routing functions
+2. Pass the API key to the geocoding, elevation, routing, and places functions
 3. Monitor usage to stay within API limits
 
 ### Supported APIs:
 - **Geocoding**: ArcGIS World Geocoding Service
+- **Elevation**: ArcGIS Location Platform Elevation Services (Point Elevation)
 - **Routing**: ArcGIS World Route Service with support for driving, walking, and trucking modes
+- **Places**: ArcGIS Places Service for point-of-interest searches
 
 ## Error Handling
 The service gracefully handles:
@@ -322,9 +413,10 @@ The service gracefully handles:
 - Invalid addresses and coordinates
 - API service unavailability
 - Missing or malformed responses
+- Elevation data unavailability
 - Routing failures between locations
 
-Failed geocoding attempts return:
+Failed requests return:
 ```json
 {
     "success": false,
@@ -346,17 +438,19 @@ Failed routing attempts return:
 ```
 
 ## Testing
-Run the test suite to verify functionality:
+Run the test suite to verify all functionality:
 ```bash
 python test_geocoding.py
 ```
 
-The test suite validates:
-- Geocoding and reverse geocoding functionality
+The test suite covers:
+- Geocoding and reverse geocoding functions
+- Elevation data retrieval
 - Map display and URL generation
 - Routing and directions with different travel modes
+- Places search functionality
 - Error handling for all services
-- Chat UI formatting for directions
+- Chat UI integration and formatting
 
 ## Server Start
 Start the MCP server:
@@ -364,4 +458,4 @@ Start the MCP server:
 python src/mcp/server/location/location_server.py
 ```
 
-The server will be available at `http://127.0.0.1:8000`
+The server will be available at `http://127.0.0.1:8000` with all location, elevation, routing, and places tools accessible via MCP protocol.

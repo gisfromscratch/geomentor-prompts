@@ -275,6 +275,90 @@ def reverse_geocode_coordinates(latitude: float, longitude: float, api_key: Opti
             "formatted_address": None
         }
 
+
+def get_elevation(latitude: float, longitude: float, api_key: Optional[str] = None) -> Dict:
+    """
+    Get elevation data for coordinates using ArcGIS Location Platform Elevation Services
+    
+    Args:
+        latitude: The latitude coordinate
+        longitude: The longitude coordinate
+        api_key: Optional API key for ArcGIS services (uses free service if not provided)
+    
+    Returns:
+        Dictionary containing elevation result with metadata
+    """
+    # ArcGIS Location Platform Elevation Service endpoint
+    base_url = "https://elevation-api.arcgis.com/arcgis/rest/services/WorldElevation/Terrain/ImageServer/identify"
+    
+    params = {
+        "f": "json",
+        "geometry": f"{longitude},{latitude}",
+        "geometryType": "esriGeometryPoint",
+        "returnGeometry": "false",
+        "returnCatalogItems": "false"
+    }
+    
+    # Add API key to parameters if provided
+    ArcGISApiKeyManager.add_key_to_params(params, api_key)
+    
+    try:
+        response = requests.get(base_url, params=params, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        if data.get("value") is not None:
+            # Extract elevation data from response
+            elevation_meters = data["value"]
+            elevation_feet = elevation_meters * 3.28084  # Convert meters to feet
+            
+            return {
+                "success": True,
+                "coordinates": {
+                    "latitude": latitude,
+                    "longitude": longitude
+                },
+                "elevation": {
+                    "meters": elevation_meters,
+                    "feet": round(elevation_feet, 2)
+                },
+                "data_source": "ArcGIS Location Platform Elevation Service",
+                "raw_response": data
+            }
+        else:
+            return {
+                "success": False,
+                "coordinates": {
+                    "latitude": latitude,
+                    "longitude": longitude
+                },
+                "error": "No elevation data available for these coordinates",
+                "elevation": None
+            }
+            
+    except requests.exceptions.RequestException as e:
+        return {
+            "success": False,
+            "coordinates": {
+                "latitude": latitude,
+                "longitude": longitude
+            },
+            "error": f"Network error: {str(e)}",
+            "elevation": None
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "coordinates": {
+                "latitude": latitude,
+                "longitude": longitude
+            },
+            "error": f"Error getting elevation: {str(e)}",
+            "elevation": None
+        }
+
+
 def get_directions_between_locations(origin: str, destination: str, travel_mode: str = "driving", api_key: Optional[str] = None) -> Dict:
     """
     Get directions and routing information between two locations using ArcGIS Location Platform Routing Services
@@ -517,6 +601,7 @@ def format_directions_for_chat(routing_result: Dict) -> str:
     
     return response
 
+
 @mcp.tool()
 def geocode(address: str) -> Dict:
     """
@@ -634,6 +719,66 @@ def reverse_geocode(latitude: float, longitude: float) -> Dict:
         Reverse geocoded result with address and metadata
     """
     return reverse_geocode_coordinates(latitude, longitude)
+
+@mcp.tool()
+def get_elevation_for_coordinates(latitude: float, longitude: float) -> Dict:
+    """
+    Get elevation data for coordinates
+    
+    Args:
+        latitude: The latitude coordinate (e.g., 37.4419)
+        longitude: The longitude coordinate (e.g., -122.1430)
+        
+    Returns:
+        Elevation data with coordinates and metadata
+    """
+    return get_elevation(latitude, longitude)
+
+@mcp.tool()
+def get_elevation_for_address(address: str) -> Dict:
+    """
+    Get elevation data for an address by first geocoding it
+    
+    Args:
+        address: The address string to get elevation for
+        
+    Returns:
+        Elevation data with coordinates and metadata
+    """
+    # First geocode the address
+    geocode_result = geocode_address(address)
+    if not geocode_result["success"]:
+        return {
+            "success": False,
+            "address": address,
+            "error": f"Failed to geocode address: {geocode_result['error']}",
+            "elevation": None
+        }
+    
+    # Get elevation for the geocoded coordinates
+    coords = geocode_result["coordinates"]
+    elevation_result = get_elevation(coords["latitude"], coords["longitude"])
+    
+    # Combine the results
+    if elevation_result["success"]:
+        return {
+            "success": True,
+            "address": address,
+            "formatted_address": geocode_result["formatted_address"],
+            "coordinates": coords,
+            "elevation": elevation_result["elevation"],
+            "data_source": elevation_result["data_source"],
+            "geocoding_score": geocode_result["score"]
+        }
+    else:
+        return {
+            "success": False,
+            "address": address,
+            "formatted_address": geocode_result["formatted_address"],
+            "coordinates": coords,
+            "error": elevation_result["error"],
+            "elevation": None
+        }
 
 @mcp.tool()
 def get_directions(origin: str, destination: str, travel_mode: str = "driving") -> Dict:
@@ -884,6 +1029,51 @@ def display_location_on_map(address: str, include_html: bool = True, zoom_level:
     
     return display_package
 
+@mcp.tool()
+def display_location_with_elevation(address: str, include_html: bool = True, zoom_level: int = 15) -> Dict:
+    """
+    Complete tool for displaying a geocoded location with elevation data in the chat UI
+    
+    Args:
+        address: The address to display on map with elevation
+        include_html: Whether to include HTML embed code (default: True)
+        zoom_level: Map zoom level (default: 15)
+        
+    Returns:
+        Complete display package including coordinates, elevation, URLs and embed code
+    """
+    # Get geocoding and elevation data
+    elevation_result = get_elevation_for_address(address)
+    if not elevation_result["success"]:
+        return {
+            "success": False,
+            "error": f"Failed to get elevation for address: {elevation_result['error']}"
+        }
+    
+    # Get map data
+    map_data = generate_map_url(address, zoom_level)
+    if "error" in map_data:
+        return {"success": False, "error": map_data["error"]}
+    
+    coords = elevation_result["coordinates"]
+    elevation = elevation_result["elevation"]
+    
+    display_package = {
+        "success": True,
+        "address": address,
+        "formatted_address": elevation_result["formatted_address"],
+        "coordinates": coords,
+        "elevation": elevation,
+        "map_urls": map_data["map_urls"],
+        "geocoding_score": elevation_result.get("geocoding_score", 0)
+    }
+    
+    if include_html:
+        display_package["embed_html"] = map_data["embed_html"]
+        display_package["markdown_map"] = f"📍 **{elevation_result['formatted_address']}**\n\n🗺️ [View on Google Maps]({map_data['map_urls']['google_maps']})\n📐 Coordinates: `{coords['latitude']:.4f}, {coords['longitude']:.4f}`\n⛰️ Elevation: `{elevation['meters']} m ({elevation['feet']} ft)`\n🎯 Accuracy Score: {elevation_result.get('geocoding_score', 0)}/100"
+    
+    return display_package
+
 # Add an addition tool
 @mcp.tool()
 def add(a: int, b: int) -> int:
@@ -923,6 +1113,34 @@ def get_reverse_geocode_info(latitude: str, longitude: str) -> str:
     except ValueError:
         return f"Invalid coordinates: {latitude}, {longitude}"
     
+# Add an elevation resource for displaying elevation data from coordinates
+@mcp.resource("elevation://{latitude},{longitude}")
+def get_elevation_info(latitude: str, longitude: str) -> str:
+    """Get elevation information for coordinates"""
+    try:
+        lat = float(latitude)
+        lon = float(longitude)
+        elevation_result = get_elevation(lat, lon)
+        if elevation_result["success"]:
+            elevation = elevation_result["elevation"]
+            return f"Elevation at {lat}, {lon}:\n{elevation['meters']} meters ({elevation['feet']} feet)\nData source: {elevation_result['data_source']}"
+        else:
+            return f"Elevation lookup failed for {lat}, {lon}: {elevation_result['error']}"
+    except ValueError:
+        return f"Invalid coordinates: {latitude}, {longitude}"
+
+# Add an elevation resource for addresses
+@mcp.resource("elevation_address://{address}")
+def get_elevation_address_info(address: str) -> str:
+    """Get elevation information for an address"""
+    elevation_result = get_elevation_for_address(address)
+    if elevation_result["success"]:
+        coords = elevation_result["coordinates"]
+        elevation = elevation_result["elevation"]
+        return f"Elevation for {elevation_result['formatted_address']}:\nCoordinates: {coords['latitude']}, {coords['longitude']}\nElevation: {elevation['meters']} meters ({elevation['feet']} feet)\nGeocoding Score: {elevation_result.get('geocoding_score', 0)}/100"
+    else:
+        return f"Elevation lookup failed for {address}: {elevation_result['error']}"
+
 
 # Add a places resource for searching places near an address
 @mcp.resource("places://{location}")
