@@ -2,7 +2,7 @@
 
 ## Design Principles
 
-The Location MCP Server provides comprehensive location-based services through a unified Model Context Protocol (MCP) interface. It follows these core design principles:
+The Location MCP Server provides comprehensive location-based services of ArcGIS Location Platform through a unified Model Context Protocol (MCP) interface. It follows these core design principles:
 
 ### 🎯 **Comprehensive Location Intelligence**
 The Location MCP Server includes geocoding, reverse geocoding, elevation data services, map display, routing functionality, and nearby places search using ArcGIS Location Platform services to provide comprehensive location-based services including coordinate conversion, elevation information, and point-of-interest discovery.
@@ -40,9 +40,9 @@ Designed for ease of integration:
 
 ### 🌐 **Multi-Platform Map Support**
 Generate URLs and embeds for multiple mapping services:
+- ArcGIS Online
 - Google Maps
 - OpenStreetMap
-- ArcGIS Online
 - Coordinate-based references
 
 ### 📊 **Rich Metadata and Context**
