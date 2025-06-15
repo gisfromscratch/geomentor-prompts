@@ -1,0 +1,14 @@
+{
+    "python.analysis.extraPaths": [
+        "./src/mcp/server/location"
+    ],
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./src/mcp",
+        "-p",
+        "test_*.py"
+    ],
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestEnabled": true
+}
