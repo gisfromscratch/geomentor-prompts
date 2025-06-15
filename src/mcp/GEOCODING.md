@@ -1,13 +1,17 @@
 # Location Services Documentation
 
 ## Overview
-The Location MCP Server provides comprehensive location-based services using ArcGIS Location Platform, including geocoding, reverse geocoding, and nearby places search functionality.
+The Location MCP Server includes geocoding, reverse geocoding, map display, routing functionality, and nearby places search using ArcGIS Location Platform services to provide comprehensive location-based services.
 
 ## Features
 - **Address Geocoding**: Convert text addresses to latitude/longitude coordinates
 - **Reverse Geocoding**: Convert latitude/longitude coordinates to readable addresses
-- **Nearby Places Search**: Find places of interest around a location with category filtering
+- **Routing & Directions**: Get turn-by-turn directions between locations with travel time and distance
+- **Map Display**: Generate map URLs and embed HTML for various mapping services
 - **Interactive Maps**: Generate embeddable maps for chat UI display
+- **Nearby Places Search**: Find places of interest around a location with category filtering
+- **Metadata Storage**: Store geocoded and routing results for efficient retrieval
+- **Error Handling**: Robust error handling for failed requests
 - **Metadata Storage**: Store geocoded results for efficient retrieval
 - **Error Handling**: Robust error handling for failed API requests
 - **Resource Endpoints**: Access location data through MCP resources
@@ -156,6 +160,40 @@ Complete tool for displaying a geocoded location on a map in the chat UI.
 **Returns:**
 Complete map display package including coordinates, URLs, embed HTML, and markdown formatting.
 
+### `get_directions(origin: str, destination: str, travel_mode: str = "driving")`
+Get directions and routing information between two locations.
+
+**Parameters:**
+- `origin` (str): The starting location (address or coordinates as "lat,lon")
+- `destination` (str): The ending location (address or coordinates as "lat,lon")
+- `travel_mode` (str): Transportation mode - "driving", "walking", or "trucking" (default: "driving")
+
+**Returns:**
+```json
+{
+    "success": true,
+    "origin": "San Francisco, CA",
+    "destination": "Oakland, CA",
+    "travel_mode": "driving",
+    "route_summary": {
+        "total_time_minutes": 25.5,
+        "total_distance_miles": 12.3,
+        "total_time_formatted": "25m"
+    },
+    "directions": [
+        {
+            "instruction": "Head north on Main St",
+            "distance": 0.5,
+            "time": 2.1,
+            "maneuver_type": "esriDMTStraight"
+        }
+    ],
+    "route_geometry": {},
+    "formatted_directions": "🗺️ **Driving Directions**...",
+    "raw_response": {}
+}
+```
+
 ## Resources Available
 
 ### `location://{address}`
@@ -224,7 +262,25 @@ print(display_package['markdown_map'])  # Formatted for chat display
 print(display_package['embed_html'])    # HTML for embedding in UI
 ```
 
+### Routing & Directions
+```python
+# Get driving directions between two locations
+directions = get_directions("San Francisco, CA", "Oakland, CA", travel_mode="driving")
+print(f"Travel time: {directions['route_summary']['total_time_formatted']}")
+print(f"Distance: {directions['route_summary']['total_distance_miles']} miles")
+
+# Display formatted directions in chat
+print(directions['formatted_directions'])
+
+# Get walking directions using coordinates
+walking_dirs = get_directions("37.7749,-122.4194", "37.8049,-122.4194", travel_mode="walking")
+if walking_dirs['success']:
+    for i, step in enumerate(walking_dirs['directions'][:5], 1):
+        print(f"{i}. {step['instruction']}")
+```
+
 ## API Integration
+The service uses ArcGIS Location Platform services for geocoding and routing. For production use:
 
 ### ArcGIS Location Platform
 This service integrates with ArcGIS Location Platform for:
@@ -253,15 +309,20 @@ API authentication is handled through the `ArcGISApiKeyManager` which looks for:
 The service uses ArcGIS Location Platform Geocoding Services. For production use:
 
 1. Obtain an API key from [ArcGIS Location Platform](https://location.arcgis.com/)
-2. Pass the API key to the geocoding function
+2. Pass the API key to the geocoding and routing functions
 3. Monitor usage to stay within API limits
+
+### Supported APIs:
+- **Geocoding**: ArcGIS World Geocoding Service
+- **Routing**: ArcGIS World Route Service with support for driving, walking, and trucking modes
 
 ## Error Handling
 The service gracefully handles:
 - Network connectivity issues
-- Invalid addresses
+- Invalid addresses and coordinates
 - API service unavailability
 - Missing or malformed responses
+- Routing failures between locations
 
 Failed geocoding attempts return:
 ```json
@@ -273,11 +334,29 @@ Failed geocoding attempts return:
 }
 ```
 
+Failed routing attempts return:
+```json
+{
+    "success": false,
+    "origin": "input origin",
+    "destination": "input destination",
+    "travel_mode": "driving",
+    "error": "Error description"
+}
+```
+
 ## Testing
 Run the test suite to verify functionality:
 ```bash
 python test_geocoding.py
 ```
+
+The test suite validates:
+- Geocoding and reverse geocoding functionality
+- Map display and URL generation
+- Routing and directions with different travel modes
+- Error handling for all services
+- Chat UI formatting for directions
 
 ## Server Start
 Start the MCP server:

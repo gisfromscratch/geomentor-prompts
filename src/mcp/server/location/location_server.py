@@ -1,6 +1,6 @@
 from mcp.server.fastmcp import FastMCP
 import requests
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from location_config import ArcGISApiKeyManager
 
 # Create an MCP server
@@ -275,6 +275,248 @@ def reverse_geocode_coordinates(latitude: float, longitude: float, api_key: Opti
             "formatted_address": None
         }
 
+def get_directions_between_locations(origin: str, destination: str, travel_mode: str = "driving", api_key: Optional[str] = None) -> Dict:
+    """
+    Get directions and routing information between two locations using ArcGIS Location Platform Routing Services
+    
+    Args:
+        origin: The starting location (address or coordinates as "lat,lon")
+        destination: The ending location (address or coordinates as "lat,lon") 
+        travel_mode: Transportation mode - "driving", "walking", or "trucking" (default: "driving")
+        api_key: Optional API key for ArcGIS services (uses free service if not provided)
+    
+    Returns:
+        Dictionary containing routing result with directions, travel time, and distance
+    """
+    # ArcGIS World Route Service endpoint
+    base_url = "https://route-api.arcgis.com/arcgis/rest/services/World/Route/NAServer/Route_World/solve"
+    
+    # Convert travel mode to ArcGIS impedance attribute
+    travel_mode_mapping = {
+        "driving": "Drive Time",
+        "walking": "Walk Time", 
+        "trucking": "Truck Travel Time"
+    }
+    
+    impedance = travel_mode_mapping.get(travel_mode.lower(), "Drive Time")
+    
+    # Geocode addresses if they are not coordinates
+    try:
+        # Check if origin is coordinates (lat,lon format) or address
+        if "," in origin and len(origin.split(",")) == 2:
+            try:
+                lat, lon = [float(x.strip()) for x in origin.split(",")]
+                origin_coords = f"{lon},{lat}"  # ArcGIS expects x,y (lon,lat)
+            except ValueError:
+                # If parsing fails, treat as address and geocode
+                geocode_result = geocode_address(origin, api_key)
+                if not geocode_result["success"]:
+                    return {
+                        "success": False,
+                        "origin": origin,
+                        "destination": destination,
+                        "travel_mode": travel_mode,
+                        "error": f"Failed to geocode origin: {geocode_result['error']}"
+                    }
+                coords = geocode_result["coordinates"]
+                origin_coords = f"{coords['longitude']},{coords['latitude']}"
+        else:
+            # Geocode address
+            geocode_result = geocode_address(origin, api_key)
+            if not geocode_result["success"]:
+                return {
+                    "success": False,
+                    "origin": origin,
+                    "destination": destination,
+                    "travel_mode": travel_mode,
+                    "error": f"Failed to geocode origin: {geocode_result['error']}"
+                }
+            coords = geocode_result["coordinates"]
+            origin_coords = f"{coords['longitude']},{coords['latitude']}"
+        
+        # Check if destination is coordinates (lat,lon format) or address  
+        if "," in destination and len(destination.split(",")) == 2:
+            try:
+                lat, lon = [float(x.strip()) for x in destination.split(",")]
+                dest_coords = f"{lon},{lat}"  # ArcGIS expects x,y (lon,lat)
+            except ValueError:
+                # If parsing fails, treat as address and geocode
+                geocode_result = geocode_address(destination, api_key)
+                if not geocode_result["success"]:
+                    return {
+                        "success": False,
+                        "origin": origin,
+                        "destination": destination,
+                        "travel_mode": travel_mode,
+                        "error": f"Failed to geocode destination: {geocode_result['error']}"
+                    }
+                coords = geocode_result["coordinates"]
+                dest_coords = f"{coords['longitude']},{coords['latitude']}"
+        else:
+            # Geocode address
+            geocode_result = geocode_address(destination, api_key)
+            if not geocode_result["success"]:
+                return {
+                    "success": False,
+                    "origin": origin,
+                    "destination": destination,
+                    "travel_mode": travel_mode,
+                    "error": f"Failed to geocode destination: {geocode_result['error']}"
+                }
+            coords = geocode_result["coordinates"]
+            dest_coords = f"{coords['longitude']},{coords['latitude']}"
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "origin": origin,
+            "destination": destination,
+            "travel_mode": travel_mode,
+            "error": f"Error processing locations: {str(e)}"
+        }
+    
+    # Prepare routing parameters
+    stops = f"{origin_coords};{dest_coords}"
+    
+    params = {
+        "stops": stops,
+        "f": "json",
+        "returnDirections": "true",
+        "returnRoutes": "true", 
+        "returnStops": "true",
+        "impedanceAttributeName": impedance,
+        "directionsOutputType": "complete",
+        "directionsStyleName": "NA Desktop",
+        "directionsLengthUnits": "miles",
+        "directionsTimeAttributeName": impedance,
+        "outputGeometryPrecision": 3,
+        "outputGeometryPrecisionUnits": "decimalDegrees"
+    }
+    
+    # Add API key to parameters if provided
+    ArcGISApiKeyManager.add_key_to_params(params, api_key)
+    
+    try:
+        response = requests.get(base_url, params=params, timeout=30)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        # Check for routing errors
+        if data.get("error"):
+            return {
+                "success": False,
+                "origin": origin,
+                "destination": destination,
+                "travel_mode": travel_mode,
+                "error": f"Routing error: {data['error'].get('message', 'Unknown routing error')}"
+            }
+        
+        # Extract route information
+        routes = data.get("routes", {}).get("features", [])
+        directions_info = data.get("directions", [])
+        
+        if not routes:
+            return {
+                "success": False,
+                "origin": origin,
+                "destination": destination,
+                "travel_mode": travel_mode,
+                "error": "No route found between the specified locations"
+            }
+        
+        route = routes[0]  # Get first (and typically only) route
+        attributes = route.get("attributes", {})
+        
+        # Extract step-by-step directions
+        directions = []
+        if directions_info:
+            directions_features = directions_info[0].get("features", [])
+            for step in directions_features:
+                step_attrs = step.get("attributes", {})
+                directions.append({
+                    "instruction": step_attrs.get("text", ""),
+                    "distance": step_attrs.get("length", 0),
+                    "time": step_attrs.get("time", 0),
+                    "maneuver_type": step_attrs.get("maneuverType", "")
+                })
+        
+        # Calculate total time and distance
+        total_time_minutes = attributes.get("Total_" + impedance.replace(" ", "_"), 0)
+        total_distance_miles = attributes.get("Total_Miles", 0)
+        
+        return {
+            "success": True,
+            "origin": origin,
+            "destination": destination,
+            "travel_mode": travel_mode,
+            "route_summary": {
+                "total_time_minutes": round(total_time_minutes, 1),
+                "total_distance_miles": round(total_distance_miles, 2),
+                "total_time_formatted": f"{int(total_time_minutes // 60)}h {int(total_time_minutes % 60)}m" if total_time_minutes >= 60 else f"{int(total_time_minutes)}m"
+            },
+            "directions": directions,
+            "route_geometry": route.get("geometry", {}),
+            "raw_response": data
+        }
+        
+    except requests.RequestException as e:
+        return {
+            "success": False,
+            "origin": origin,
+            "destination": destination,
+            "travel_mode": travel_mode,
+            "error": f"Routing request failed: {str(e)}"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "origin": origin,
+            "destination": destination, 
+            "travel_mode": travel_mode,
+            "error": f"Routing error: {str(e)}"
+        }
+
+def format_directions_for_chat(routing_result: Dict) -> str:
+    """
+    Format routing results for display in chat UI
+    
+    Args:
+        routing_result: Result from get_directions_between_locations
+        
+    Returns:
+        Formatted markdown string for chat display
+    """
+    if not routing_result.get("success"):
+        return f"❌ **Routing Failed**\n\nError: {routing_result.get('error', 'Unknown error')}"
+    
+    summary = routing_result["route_summary"]
+    directions = routing_result.get("directions", [])
+    travel_mode = routing_result.get("travel_mode", "driving").capitalize()
+    
+    # Build the formatted response
+    response = f"🗺️ **{travel_mode} Directions**\n\n"
+    response += f"📍 **From:** {routing_result['origin']}\n"
+    response += f"🎯 **To:** {routing_result['destination']}\n\n"
+    response += f"⏱️ **Travel Time:** {summary['total_time_formatted']}\n"
+    response += f"📏 **Distance:** {summary['total_distance_miles']} miles\n\n"
+    
+    if directions:
+        response += "📋 **Turn-by-Turn Directions:**\n"
+        for i, step in enumerate(directions[:10], 1):  # Limit to first 10 steps for readability
+            instruction = step.get("instruction", "").strip()
+            if instruction:
+                distance = step.get("distance", 0)
+                if distance > 0:
+                    response += f"{i}. {instruction} ({distance:.1f} miles)\n"
+                else:
+                    response += f"{i}. {instruction}\n"
+        
+        if len(directions) > 10:
+            response += f"... and {len(directions) - 10} more steps\n"
+    
+    return response
+
 @mcp.tool()
 def geocode(address: str) -> Dict:
     """
@@ -394,6 +636,26 @@ def reverse_geocode(latitude: float, longitude: float) -> Dict:
     return reverse_geocode_coordinates(latitude, longitude)
 
 @mcp.tool()
+def get_directions(origin: str, destination: str, travel_mode: str = "driving") -> Dict:
+    """
+    Get directions and routing information between two locations
+    
+    Args:
+        origin: The starting location (address or coordinates as "lat,lon")
+        destination: The ending location (address or coordinates as "lat,lon")
+        travel_mode: Transportation mode - "driving", "walking", or "trucking" (default: "driving")
+        
+    Returns:
+        Dictionary containing routing result with step-by-step directions, travel time, distance, and formatted chat display
+    """
+    result = get_directions_between_locations(origin, destination, travel_mode)
+    
+    # Add formatted chat display to the result
+    if "success" in result:
+        result["formatted_directions"] = format_directions_for_chat(result)
+    
+    return result
+
 def find_places_by_coordinates(latitude: float, longitude: float, category: Optional[str] = None, radius: int = 1000, max_results: int = 10) -> Dict:
     """
     Find nearby places around specific coordinates with optional category filtering
