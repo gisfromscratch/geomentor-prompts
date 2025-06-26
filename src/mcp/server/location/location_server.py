@@ -6,7 +6,7 @@ from location_config import ArcGISApiKeyManager
 # Create an MCP server
 mcp = FastMCP(name="Location MCP Demo", 
               description="A MCP demo server for location-based services",
-              version="1.0.0",
+              version="0.1.0",
               port=8000)
 
 
@@ -1201,4 +1201,5 @@ def get_places_near_coordinates(latitude: str, longitude: str) -> str:
 
 if __name__ == "__main__":
     # Start the server locally
-    mcp.run(transport="sse")
+    #mcp.run(transport="sse")
+    mcp.run(transport="stdio")
