@@ -6,17 +6,15 @@ from location_config import ArcGISApiKeyManager
 # Create an MCP server
 mcp = FastMCP(name="Location MCP Demo", 
               description="A MCP demo server for location-based services",
-              version="1.0.0",
+              version="0.1.0",
               port=8000)
 
-
-def geocode_address(address: str, api_key: Optional[str] = None) -> Dict:
+def geocode_address(address: str) -> Dict:
     """
     Geocode an address using ArcGIS Location Platform Geocoding Services
     
     Args:
         address: The address string to geocode
-        api_key: Optional API key for ArcGIS services (uses free service if not provided)
     
     Returns:
         Dictionary containing geocoded result with coordinates and metadata
@@ -31,7 +29,8 @@ def geocode_address(address: str, api_key: Optional[str] = None) -> Dict:
         "maxLocations": 1
     }
     
-    # Add API key to parameters if provided
+    # Get the API key from environment variable or configuration
+    api_key = ArcGISApiKeyManager.get_api_key()
     ArcGISApiKeyManager.add_key_to_params(params, api_key)
     
     try:
@@ -78,7 +77,7 @@ def geocode_address(address: str, api_key: Optional[str] = None) -> Dict:
             "coordinates": None
         }
 
-def search_nearby_places(latitude: float, longitude: float, category: Optional[str] = None, radius: int = 1000, max_results: int = 10, api_key: Optional[str] = None) -> Dict:
+def search_nearby_places(latitude: float, longitude: float, category: Optional[str] = None, radius: int = 1000, max_results: int = 10) -> Dict:
     """
     Search for nearby places using ArcGIS Location Platform Places Services
     
@@ -88,7 +87,6 @@ def search_nearby_places(latitude: float, longitude: float, category: Optional[s
         category: Optional category filter (e.g., 'restaurant', 'gas_station', 'park')
         radius: Search radius in meters (default: 1000m)
         max_results: Maximum number of results to return (default: 10)
-        api_key: Optional API key for ArcGIS services
     
     Returns:
         Dictionary containing nearby places with their details and coordinates
@@ -108,7 +106,8 @@ def search_nearby_places(latitude: float, longitude: float, category: Optional[s
     if category:
         params["categoryIds"] = category
     
-    # Add API key to parameters if provided
+    # Get the API key from environment variable or configuration
+    api_key = ArcGISApiKeyManager.get_api_key()
     ArcGISApiKeyManager.add_key_to_params(params, api_key)
     
     try:
@@ -192,14 +191,13 @@ def search_nearby_places(latitude: float, longitude: float, category: Optional[s
             "places": []
         }
 
-def reverse_geocode_coordinates(latitude: float, longitude: float, api_key: Optional[str] = None) -> Dict:
+def reverse_geocode_coordinates(latitude: float, longitude: float) -> Dict:
     """
     Reverse geocode coordinates using ArcGIS Location Platform Reverse Geocoding Services
     
     Args:
         latitude: The latitude coordinate
         longitude: The longitude coordinate
-        api_key: Optional API key for ArcGIS services (uses free service if not provided)
     
     Returns:
         Dictionary containing reverse geocoded result with address and metadata
@@ -214,7 +212,8 @@ def reverse_geocode_coordinates(latitude: float, longitude: float, api_key: Opti
         "returnIntersection": "false"
     }
     
-    # Add API key to parameters if provided
+    # Get the API key from environment variable or configuration
+    api_key = ArcGISApiKeyManager.get_api_key()
     ArcGISApiKeyManager.add_key_to_params(params, api_key)
     
     try:
@@ -276,14 +275,13 @@ def reverse_geocode_coordinates(latitude: float, longitude: float, api_key: Opti
         }
 
 
-def get_elevation(latitude: float, longitude: float, api_key: Optional[str] = None) -> Dict:
+def get_elevation(latitude: float, longitude: float) -> Dict:
     """
     Get elevation data for coordinates using ArcGIS Location Platform Elevation Services
     
     Args:
         latitude: The latitude coordinate
         longitude: The longitude coordinate
-        api_key: Optional API key for ArcGIS services (uses free service if not provided)
     
     Returns:
         Dictionary containing elevation result with metadata
@@ -299,7 +297,8 @@ def get_elevation(latitude: float, longitude: float, api_key: Optional[str] = No
         "returnCatalogItems": "false"
     }
     
-    # Add API key to parameters if provided
+    # Get the API key from environment variable or configuration
+    api_key = ArcGISApiKeyManager.get_api_key()
     ArcGISApiKeyManager.add_key_to_params(params, api_key)
     
     try:
@@ -359,7 +358,7 @@ def get_elevation(latitude: float, longitude: float, api_key: Optional[str] = No
         }
 
 
-def get_directions_between_locations(origin: str, destination: str, travel_mode: str = "driving", api_key: Optional[str] = None) -> Dict:
+def get_directions_between_locations(origin: str, destination: str, travel_mode: str = "driving") -> Dict:
     """
     Get directions and routing information between two locations using ArcGIS Location Platform Routing Services
     
@@ -367,7 +366,6 @@ def get_directions_between_locations(origin: str, destination: str, travel_mode:
         origin: The starting location (address or coordinates as "lat,lon")
         destination: The ending location (address or coordinates as "lat,lon") 
         travel_mode: Transportation mode - "driving", "walking", or "trucking" (default: "driving")
-        api_key: Optional API key for ArcGIS services (uses free service if not provided)
     
     Returns:
         Dictionary containing routing result with directions, travel time, and distance
@@ -393,7 +391,7 @@ def get_directions_between_locations(origin: str, destination: str, travel_mode:
                 origin_coords = f"{lon},{lat}"  # ArcGIS expects x,y (lon,lat)
             except ValueError:
                 # If parsing fails, treat as address and geocode
-                geocode_result = geocode_address(origin, api_key)
+                geocode_result = geocode_address(origin)
                 if not geocode_result["success"]:
                     return {
                         "success": False,
@@ -406,7 +404,7 @@ def get_directions_between_locations(origin: str, destination: str, travel_mode:
                 origin_coords = f"{coords['longitude']},{coords['latitude']}"
         else:
             # Geocode address
-            geocode_result = geocode_address(origin, api_key)
+            geocode_result = geocode_address(origin)
             if not geocode_result["success"]:
                 return {
                     "success": False,
@@ -425,7 +423,7 @@ def get_directions_between_locations(origin: str, destination: str, travel_mode:
                 dest_coords = f"{lon},{lat}"  # ArcGIS expects x,y (lon,lat)
             except ValueError:
                 # If parsing fails, treat as address and geocode
-                geocode_result = geocode_address(destination, api_key)
+                geocode_result = geocode_address(destination)
                 if not geocode_result["success"]:
                     return {
                         "success": False,
@@ -438,7 +436,7 @@ def get_directions_between_locations(origin: str, destination: str, travel_mode:
                 dest_coords = f"{coords['longitude']},{coords['latitude']}"
         else:
             # Geocode address
-            geocode_result = geocode_address(destination, api_key)
+            geocode_result = geocode_address(destination)
             if not geocode_result["success"]:
                 return {
                     "success": False,
@@ -477,7 +475,8 @@ def get_directions_between_locations(origin: str, destination: str, travel_mode:
         "outputGeometryPrecisionUnits": "decimalDegrees"
     }
     
-    # Add API key to parameters if provided
+    # Get the API key from environment variable or configuration
+    api_key = ArcGISApiKeyManager.get_api_key()
     ArcGISApiKeyManager.add_key_to_params(params, api_key)
     
     try:
@@ -905,9 +904,9 @@ def generate_map_url(address: str, zoom_level: int = 15) -> Dict:
     
     # Generate URLs for different map services
     map_urls = {
-        "google_maps": f"https://www.google.com/maps?q={lat},{lon}&z={zoom_level}",
+        "arcgis": f"https://www.arcgis.com/apps/mapviewer/index.html?center={lon},{lat}&level={zoom_level}",
         "openstreetmap": f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}&zoom={zoom_level}",
-        "arcgis": f"https://www.arcgis.com/home/webmap/viewer.html?center={lon},{lat}&level={zoom_level}",
+        "google_maps": f"https://www.google.com/maps?q={lat},{lon}&z={zoom_level}",
         "coordinates": f"{lat},{lon}",
         "formatted_address": geocode_result["formatted_address"]
     }
@@ -1019,14 +1018,14 @@ def display_location_on_map(address: str, include_html: bool = True, zoom_level:
         "address": address,
         "formatted_address": geocode_result["formatted_address"],
         "coordinates": coords,
-        "map_urls": map_data["map_urls"],
+        #"map_urls": map_data["map_urls"],
         "geocoding_score": geocode_result["score"]
     }
     
     if include_html:
-        display_package["embed_html"] = map_data["embed_html"]
-        display_package["markdown_map"] = f"📍 **{geocode_result['formatted_address']}**\n\n🗺️ [View on Google Maps]({map_data['map_urls']['google_maps']})\n📐 Coordinates: `{coords['latitude']:.4f}, {coords['longitude']:.4f}`\n🎯 Accuracy Score: {geocode_result['score']}/100"
-    
+        #display_package["embed_html"] = map_data["embed_html"]
+        display_package["markdown_map"] = f"📍 **{geocode_result['formatted_address']}**\n\n🗺️ [View on ArcGIS]({map_data['map_urls']['arcgis']})\n📐 Coordinates: `{coords['latitude']:.4f}, {coords['longitude']:.4f}`\n🎯 Accuracy Score: {geocode_result['score']}/100"
+
     return display_package
 
 @mcp.tool()
@@ -1201,4 +1200,5 @@ def get_places_near_coordinates(latitude: str, longitude: str) -> str:
 
 if __name__ == "__main__":
     # Start the server locally
-    mcp.run(transport="sse")
+    #mcp.run(transport="sse")
+    mcp.run(transport="stdio")
