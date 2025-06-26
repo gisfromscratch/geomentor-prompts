@@ -904,9 +904,9 @@ def generate_map_url(address: str, zoom_level: int = 15) -> Dict:
     
     # Generate URLs for different map services
     map_urls = {
-        "google_maps": f"https://www.google.com/maps?q={lat},{lon}&z={zoom_level}",
+        "arcgis": f"https://www.arcgis.com/apps/mapviewer/index.html?center={lon},{lat}&level={zoom_level}",
         "openstreetmap": f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}&zoom={zoom_level}",
-        "arcgis": f"https://www.arcgis.com/home/webmap/viewer.html?center={lon},{lat}&level={zoom_level}",
+        "google_maps": f"https://www.google.com/maps?q={lat},{lon}&z={zoom_level}",
         "coordinates": f"{lat},{lon}",
         "formatted_address": geocode_result["formatted_address"]
     }
@@ -1018,14 +1018,14 @@ def display_location_on_map(address: str, include_html: bool = True, zoom_level:
         "address": address,
         "formatted_address": geocode_result["formatted_address"],
         "coordinates": coords,
-        "map_urls": map_data["map_urls"],
+        #"map_urls": map_data["map_urls"],
         "geocoding_score": geocode_result["score"]
     }
     
     if include_html:
-        display_package["embed_html"] = map_data["embed_html"]
-        display_package["markdown_map"] = f"📍 **{geocode_result['formatted_address']}**\n\n🗺️ [View on Google Maps]({map_data['map_urls']['google_maps']})\n📐 Coordinates: `{coords['latitude']:.4f}, {coords['longitude']:.4f}`\n🎯 Accuracy Score: {geocode_result['score']}/100"
-    
+        #display_package["embed_html"] = map_data["embed_html"]
+        display_package["markdown_map"] = f"📍 **{geocode_result['formatted_address']}**\n\n🗺️ [View on ArcGIS]({map_data['map_urls']['arcgis']})\n📐 Coordinates: `{coords['latitude']:.4f}, {coords['longitude']:.4f}`\n🎯 Accuracy Score: {geocode_result['score']}/100"
+
     return display_package
 
 @mcp.tool()
