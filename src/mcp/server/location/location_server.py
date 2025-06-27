@@ -1,4 +1,4 @@
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Image
 import requests
 import math
 import base64
@@ -1067,7 +1067,8 @@ def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15,
         longitude: Center longitude for the tile
         zoom: Zoom level (0-22, default: 15)
         tile_size: Tile size in pixels (default: 512)
-        return_image_data: If True, return base64 encoded image data; if False, return tile URL
+        return_image_data: If True, return raw image data directly; 
+            if False, return tile URL
         style_name: Optional style name for the basemap tile (default: "navigation")
         
     Returns:
@@ -1129,9 +1130,8 @@ def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15,
                 response.raise_for_status()
                 
                 # Encode image as base64
-                image_base64 = base64.b64encode(response.content).decode('utf-8')
-                result["image_data"] = image_base64
-                result["image_format"] = "data:image/png;base64"
+                result["image_data"] = response.content
+                result["image_format"] = "image/png"
                 
             except requests.RequestException as e:
                 return {
@@ -1222,6 +1222,27 @@ def generate_static_map_from_address(address: str, zoom: int = 15,
     
     return tile_result
 
+@mcp.tool()
+def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15) -> Image:
+    """
+    Renders a static map tile from coordinates using ArcGIS basemap tiles as binary image.
+    The result can be directly used in chat UIs that support image rendering.
+
+    Args:
+        latitude: Center latitude for the map
+        longitude: Center longitude for the map
+        zoom: Zoom level (0-22, default: 15)
+        
+    Returns:
+        Image object containing the static map tile as binary data.
+    """
+    tile_result = get_static_basemap_tile(latitude, longitude, zoom, return_image_data=True)
+
+    if not tile_result["success"]:
+        return tile_result
+
+    # Return the map tile as raw image data
+    return Image(data=tile_result["image_data"], format=tile_result["image_format"])
 
 def get_zoom_level_description(zoom: int) -> str:
     """
