@@ -10,6 +10,8 @@ The Location MCP Server includes geocoding, reverse geocoding, elevation data se
 - **Routing & Directions**: Get turn-by-turn directions between locations with travel time and distance
 - **Map Display**: Generate map URLs and embed HTML for various mapping services
 - **Interactive Maps**: Generate embeddable maps for chat UI display
+- **Static Basemap Tiles**: Fetch static map tiles from ArcGIS Location Platform basemaps
+- **Visual Map Representation**: Generate PNG tile images for locations and coordinates
 - **Nearby Places Search**: Find places of interest around a location with category filtering
 - **Metadata Storage**: Store geocoded, elevation, and routing results for efficient retrieval
 - **Error Handling**: Robust error handling for failed requests
@@ -124,6 +126,78 @@ Reverse geocodes coordinates to get address and location information.
     },
     "location_type": "4326",
     "raw_response": {}
+}
+```
+
+### `generate_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, include_image_data: bool = False)`
+Generate a static map tile from coordinates using ArcGIS basemap tiles.
+
+**Parameters:**
+- `latitude` (float): Center latitude for the map
+- `longitude` (float): Center longitude for the map  
+- `zoom` (int): Zoom level (0-22, default: 15)
+- `include_image_data` (bool): If True, return base64 encoded image data
+
+**Returns:**
+```json
+{
+    "success": true,
+    "tile_coordinates": {
+        "x": 5242,
+        "y": 12666, 
+        "z": 15
+    },
+    "center_coordinates": {
+        "latitude": 40.7128,
+        "longitude": -74.0060
+    },
+    "tile_url": "https://basemap.arcgis.com/arcgis/rest/services/World_Basemap_v2/MapServer/tile/15/12666/5242",
+    "tile_size": "512x512",
+    "format": "PNG",
+    "map_context": {
+        "service": "ArcGIS World Basemap v2",
+        "projection": "Web Mercator (EPSG:3857)",
+        "zoom_description": "Neighborhood",
+        "coverage": "Global"
+    }
+}
+```
+
+### `generate_static_map_from_address(address: str, zoom: int = 15, include_image_data: bool = False)`
+Generate a static map tile from an address using ArcGIS basemap tiles.
+
+**Parameters:**
+- `address` (str): Address or place name to map
+- `zoom` (int): Zoom level (0-22, default: 15)
+- `include_image_data` (bool): If True, return base64 encoded image data
+
+**Returns:**
+```json
+{
+    "success": true,
+    "tile_coordinates": {
+        "x": 5242,
+        "y": 12666,
+        "z": 15
+    },
+    "center_coordinates": {
+        "latitude": 40.7128,
+        "longitude": -74.0060
+    },
+    "tile_url": "https://basemap.arcgis.com/arcgis/rest/services/World_Basemap_v2/MapServer/tile/15/12666/5242",
+    "tile_size": "512x512", 
+    "format": "PNG",
+    "map_context": {
+        "service": "ArcGIS World Basemap v2",
+        "projection": "Web Mercator (EPSG:3857)",
+        "zoom_description": "Neighborhood",
+        "coverage": "Global"
+    },
+    "geocoding": {
+        "input_address": "Times Square, New York",
+        "formatted_address": "Times Square, New York, NY, USA",
+        "geocoding_score": 100
+    }
 }
 ```
 
@@ -287,6 +361,24 @@ Get places information near specific coordinates.
 
 ## Usage Examples
 
+### Static Basemap Tiles
+```python
+# Generate static map tile from coordinates
+tile_result = generate_static_map_from_coordinates(40.7128, -74.0060, zoom=12)
+if tile_result["success"]:
+    print(f"Tile URL: {tile_result['tile_url']}")
+    print(f"Zoom level: {tile_result['map_context']['zoom_description']}")
+    print(f"Tile coordinates: {tile_result['tile_coordinates']}")
+
+# Generate static map tile from address
+tile_result = generate_static_map_from_address("Eiffel Tower, Paris", zoom=16, include_image_data=True)
+if tile_result["success"]:
+    print(f"Address: {tile_result['geocoding']['formatted_address']}")
+    print(f"Tile URL: {tile_result['tile_url']}")
+    if "image_data" in tile_result:
+        print("Base64 image data available for display")
+```
+
 ### Basic Geocoding
 ```python
 # Using the geocode tool
@@ -376,6 +468,7 @@ This service integrates with ArcGIS Location Platform for:
 - **Elevation Service**: Point Elevation service for terrain data  
 - **Places Service**: Places API for nearby points of interest search
 - **Routing Service**: World Route Service for directions and travel information
+- **Static Basemap Tiles**: World Basemap v2 for static map tile imagery
 - **API Key Management**: Automatic handling of API keys via environment variables
 
 ### Supported Place Categories
@@ -406,6 +499,7 @@ API authentication is handled through the `ArcGISApiKeyManager` which looks for:
 - **Elevation**: ArcGIS Location Platform Elevation Services (Point Elevation)
 - **Routing**: ArcGIS World Route Service with support for driving, walking, and trucking modes
 - **Places**: ArcGIS Places Service for point-of-interest searches
+- **Static Basemap**: ArcGIS World Basemap v2 tile service with zoom levels 0-22
 
 ## Error Handling
 The service gracefully handles:
@@ -441,12 +535,14 @@ Failed routing attempts return:
 Run the test suite to verify all functionality:
 ```bash
 python test_geocoding.py
+python test_basemap_tiles.py
 ```
 
 The test suite covers:
 - Geocoding and reverse geocoding functions
 - Elevation data retrieval
 - Map display and URL generation
+- Static basemap tile generation and coordinate conversion
 - Routing and directions with different travel modes
 - Places search functionality
 - Error handling for all services
