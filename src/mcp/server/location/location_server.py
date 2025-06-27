@@ -1057,7 +1057,8 @@ def lat_lon_to_tile_coordinates(latitude: float, longitude: float, zoom: int) ->
 
 
 def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15, 
-                           tile_size: int = 512, return_image_data: bool = False) -> Dict:
+                           tile_size: int = 512, return_image_data: bool = False, 
+                           style_name: str = "navigation") -> Dict:
     """
     Fetch a static basemap tile from ArcGIS Location Platform
     
@@ -1067,6 +1068,7 @@ def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15,
         zoom: Zoom level (0-22, default: 15)
         tile_size: Tile size in pixels (default: 512)
         return_image_data: If True, return base64 encoded image data; if False, return tile URL
+        style_name: Optional style name for the basemap tile (default: "navigation")
         
     Returns:
         Dictionary containing tile URL or image data and metadata
@@ -1096,7 +1098,8 @@ def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15,
         tile_x, tile_y = lat_lon_to_tile_coordinates(latitude, longitude, zoom)
         
         # Build the ArcGIS basemap tile URL
-        base_url = "https://basemap.arcgis.com/arcgis/rest/services/World_Basemap_v2/MapServer/tile"
+        style_family = "arcgis"
+        base_url = f"https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/{style_family}/{style_name}/static/tile"
         tile_url = f"{base_url}/{zoom}/{tile_y}/{tile_x}"
         
         # Add API key if available
