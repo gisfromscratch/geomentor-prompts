@@ -1,6 +1,8 @@
 from mcp.server.fastmcp import FastMCP
 import requests
-from typing import Dict, Optional, List
+import math
+import base64
+from typing import Dict, Optional, List, Union
 from location_config import ArcGISApiKeyManager
 
 # Create an MCP server
@@ -1027,6 +1029,234 @@ def display_location_on_map(address: str, include_html: bool = True, zoom_level:
         display_package["markdown_map"] = f"📍 **{geocode_result['formatted_address']}**\n\n🗺️ [View on ArcGIS]({map_data['map_urls']['arcgis']})\n📐 Coordinates: `{coords['latitude']:.4f}, {coords['longitude']:.4f}`\n🎯 Accuracy Score: {geocode_result['score']}/100"
 
     return display_package
+
+
+# ===== STATIC BASEMAP TILE FUNCTIONALITY =====
+
+def lat_lon_to_tile_coordinates(latitude: float, longitude: float, zoom: int) -> tuple:
+    """
+    Convert latitude/longitude coordinates to tile coordinates (x, y) for Web Mercator projection
+    
+    Args:
+        latitude: Latitude in decimal degrees
+        longitude: Longitude in decimal degrees  
+        zoom: Zoom level (0-22)
+        
+    Returns:
+        Tuple of (x, y) tile coordinates
+    """
+    # Clamp latitude to valid Web Mercator range
+    lat_rad = math.radians(max(-85.051128779807, min(85.051128779807, latitude)))
+    
+    # Convert to tile coordinates
+    n = 2.0 ** zoom
+    x = int((longitude + 180.0) / 360.0 * n)
+    y = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
+    
+    return (x, y)
+
+
+def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15, 
+                           tile_size: int = 512, return_image_data: bool = False) -> Dict:
+    """
+    Fetch a static basemap tile from ArcGIS Location Platform
+    
+    Args:
+        latitude: Center latitude for the tile
+        longitude: Center longitude for the tile
+        zoom: Zoom level (0-22, default: 15)
+        tile_size: Tile size in pixels (default: 512)
+        return_image_data: If True, return base64 encoded image data; if False, return tile URL
+        
+    Returns:
+        Dictionary containing tile URL or image data and metadata
+    """
+    try:
+        # Validate zoom level
+        if not 0 <= zoom <= 22:
+            return {
+                "success": False,
+                "error": f"Invalid zoom level {zoom}. Must be between 0 and 22."
+            }
+            
+        # Validate coordinates
+        if not -90 <= latitude <= 90:
+            return {
+                "success": False,
+                "error": f"Invalid latitude {latitude}. Must be between -90 and 90."
+            }
+            
+        if not -180 <= longitude <= 180:
+            return {
+                "success": False,
+                "error": f"Invalid longitude {longitude}. Must be between -180 and 180."
+            }
+        
+        # Convert lat/lon to tile coordinates
+        tile_x, tile_y = lat_lon_to_tile_coordinates(latitude, longitude, zoom)
+        
+        # Build the ArcGIS basemap tile URL
+        base_url = "https://basemap.arcgis.com/arcgis/rest/services/World_Basemap_v2/MapServer/tile"
+        tile_url = f"{base_url}/{zoom}/{tile_y}/{tile_x}"
+        
+        # Add API key if available
+        params = {}
+        ArcGISApiKeyManager.add_key_to_params(params)
+        
+        result = {
+            "success": True,
+            "tile_coordinates": {
+                "x": tile_x,
+                "y": tile_y,
+                "z": zoom
+            },
+            "center_coordinates": {
+                "latitude": latitude,
+                "longitude": longitude
+            },
+            "tile_url": tile_url,
+            "tile_size": f"{tile_size}x{tile_size}",
+            "format": "PNG"
+        }
+        
+        # If requested, fetch the actual image data
+        if return_image_data:
+            try:
+                response = requests.get(tile_url, params=params, timeout=15)
+                response.raise_for_status()
+                
+                # Encode image as base64
+                image_base64 = base64.b64encode(response.content).decode('utf-8')
+                result["image_data"] = image_base64
+                result["image_format"] = "data:image/png;base64"
+                
+            except requests.RequestException as e:
+                return {
+                    "success": False,
+                    "error": f"Failed to fetch tile image: {str(e)}",
+                    "tile_url": tile_url
+                }
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error generating basemap tile: {str(e)}"
+        }
+
+
+@mcp.tool()
+def generate_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, 
+                                       include_image_data: bool = False) -> Dict:
+    """
+    Generate a static map tile from coordinates using ArcGIS basemap tiles
+    
+    Args:
+        latitude: Center latitude for the map
+        longitude: Center longitude for the map
+        zoom: Zoom level (0-22, default: 15)
+        include_image_data: If True, return base64 encoded image data
+        
+    Returns:
+        Dictionary containing static map tile information
+    """
+    tile_result = get_static_basemap_tile(latitude, longitude, zoom, return_image_data=include_image_data)
+    
+    if not tile_result["success"]:
+        return tile_result
+    
+    # Add additional map context
+    tile_result["map_context"] = {
+        "service": "ArcGIS World Basemap v2",
+        "projection": "Web Mercator (EPSG:3857)",
+        "zoom_description": get_zoom_level_description(zoom),
+        "coverage": "Global"
+    }
+    
+    return tile_result
+
+
+@mcp.tool()
+def generate_static_map_from_address(address: str, zoom: int = 15, 
+                                   include_image_data: bool = False) -> Dict:
+    """
+    Generate a static map tile from an address using ArcGIS basemap tiles
+    
+    Args:
+        address: Address or place name to map
+        zoom: Zoom level (0-22, default: 15)
+        include_image_data: If True, return base64 encoded image data
+        
+    Returns:
+        Dictionary containing static map tile information and geocoding results
+    """
+    # First geocode the address
+    geocode_result = geocode_address(address)
+    if not geocode_result["success"]:
+        return {
+            "success": False,
+            "error": f"Failed to geocode address '{address}': {geocode_result['error']}"
+        }
+    
+    # Extract coordinates
+    coords = geocode_result["coordinates"]
+    latitude = coords["latitude"]
+    longitude = coords["longitude"]
+    
+    # Generate the static map tile
+    tile_result = generate_static_map_from_coordinates(latitude, longitude, zoom, include_image_data)
+    
+    if not tile_result["success"]:
+        return tile_result
+    
+    # Add geocoding information to the result
+    tile_result["geocoding"] = {
+        "input_address": address,
+        "formatted_address": geocode_result["formatted_address"],
+        "geocoding_score": geocode_result["score"]
+    }
+    
+    return tile_result
+
+
+def get_zoom_level_description(zoom: int) -> str:
+    """
+    Get a human-readable description of the zoom level
+    
+    Args:
+        zoom: Zoom level (0-22)
+        
+    Returns:
+        Description string
+    """
+    descriptions = {
+        0: "World view",
+        1: "Continental view", 
+        2: "Continental view",
+        3: "Country view",
+        4: "Country view",
+        5: "State/Province view",
+        6: "State/Province view", 
+        7: "Regional view",
+        8: "Regional view",
+        9: "Metropolitan area",
+        10: "City view",
+        11: "City view",
+        12: "Town view",
+        13: "Town view",
+        14: "Neighborhood",
+        15: "Neighborhood",
+        16: "Street level",
+        17: "Street level",
+        18: "Building level",
+        19: "Building level",
+        20: "Building detail",
+        21: "Building detail",
+        22: "Maximum detail"
+    }
+    
+    return descriptions.get(zoom, f"Zoom level {zoom}")
 
 @mcp.tool()
 def display_location_with_elevation(address: str, include_html: bool = True, zoom_level: int = 15) -> Dict:

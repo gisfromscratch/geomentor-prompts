@@ -1,9 +1,47 @@
 # Map Visualization Services
 
 ## Overview
-The Map Visualization service provides interactive map generation, URL creation, and embed HTML for displaying locations, routes, and places in chat interfaces and web applications. This service integrates with multiple mapping platforms to provide comprehensive map display capabilities.
+The Map Visualization service provides interactive map generation, URL creation, embed HTML for displaying locations, routes, and places in chat interfaces and web applications, plus **static basemap tile generation** from ArcGIS Location Platform. This service integrates with multiple mapping platforms to provide comprehensive map display capabilities including real map imagery through tile services.
 
 ## Available Tools
+
+### `generate_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, include_image_data: bool = False)`
+Generate a static map tile from coordinates using ArcGIS basemap tiles.
+
+**Parameters:**
+- `latitude` (float): Center latitude for the map
+- `longitude` (float): Center longitude for the map
+- `zoom` (int): Zoom level (0-22, default: 15)
+- `include_image_data` (bool): If True, return base64 encoded image data
+
+**Returns:**
+```json
+{
+    "success": true,
+    "tile_coordinates": {"x": 5242, "y": 12666, "z": 15},
+    "center_coordinates": {"latitude": 40.7128, "longitude": -74.0060},
+    "tile_url": "https://basemap.arcgis.com/arcgis/rest/services/World_Basemap_v2/MapServer/tile/15/12666/5242",
+    "tile_size": "512x512",
+    "format": "PNG",
+    "map_context": {
+        "service": "ArcGIS World Basemap v2",
+        "projection": "Web Mercator (EPSG:3857)",
+        "zoom_description": "Neighborhood",
+        "coverage": "Global"
+    }
+}
+```
+
+### `generate_static_map_from_address(address: str, zoom: int = 15, include_image_data: bool = False)`
+Generate a static map tile from an address using ArcGIS basemap tiles.
+
+**Parameters:**
+- `address` (str): Address or place name to map
+- `zoom` (int): Zoom level (0-22, default: 15)
+- `include_image_data` (bool): If True, return base64 encoded image data
+
+**Returns:**
+Includes all fields from `generate_static_map_from_coordinates` plus geocoding information.
 
 ### `generate_map_url(address: str, zoom_level: int = 15)`
 Generate map URLs for displaying geocoded locations across multiple mapping services.
@@ -73,6 +111,29 @@ The service automatically generates embeddable HTML for chat interfaces and web 
 - **Best for**: Professional applications, spatial analysis
 
 ## Usage Examples
+
+### Static Basemap Tiles
+```python
+# Generate static map tile from coordinates
+tile_result = generate_static_map_from_coordinates(40.7128, -74.0060, zoom=15)
+if tile_result["success"]:
+    print(f"Tile URL: {tile_result['tile_url']}")
+    print(f"Tile coordinates: x={tile_result['tile_coordinates']['x']}, y={tile_result['tile_coordinates']['y']}")
+    print(f"Zoom description: {tile_result['map_context']['zoom_description']}")
+
+# Generate static map with image data
+tile_with_image = generate_static_map_from_coordinates(37.7749, -122.4194, zoom=12, include_image_data=True)
+if tile_with_image["success"] and "image_data" in tile_with_image:
+    print("PNG image data available as base64")
+    # Can be used as: <img src="data:image/png;base64,{image_data}">
+
+# Generate static map from address
+address_tile = generate_static_map_from_address("Eiffel Tower, Paris", zoom=16)
+if address_tile["success"]:
+    print(f"Address: {address_tile['geocoding']['formatted_address']}")
+    print(f"Map tile: {address_tile['tile_url']}")
+    print(f"Geocoding score: {address_tile['geocoding']['geocoding_score']}")
+```
 
 ### Basic Map URL Generation
 ```python
