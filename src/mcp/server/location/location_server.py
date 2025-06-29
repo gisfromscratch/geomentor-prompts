@@ -1057,8 +1057,7 @@ def lat_lon_to_tile_coordinates(latitude: float, longitude: float, zoom: int) ->
 
 
 def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15, 
-                           tile_size: int = 512, return_image_data: bool = False, 
-                           style_name: str = "navigation") -> Dict:
+                           tile_size: int = 512, style_name: str = "navigation") -> Union[Image, Dict]:
     """
     Fetch a static basemap tile from ArcGIS Location Platform
     
@@ -1067,12 +1066,10 @@ def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15,
         longitude: Center longitude for the tile
         zoom: Zoom level (0-22, default: 15)
         tile_size: Tile size in pixels (default: 512)
-        return_image_data: If True, return raw image data directly; 
-            if False, return tile URL
         style_name: Optional style name for the basemap tile (default: "navigation")
         
     Returns:
-        Dictionary containing tile URL or image data and metadata
+        Image object when successful, error dict when failed
     """
     try:
         # Validate zoom level
@@ -1107,40 +1104,20 @@ def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15,
         params = {}
         ArcGISApiKeyManager.add_key_to_params(params)
         
-        result = {
-            "success": True,
-            "tile_coordinates": {
-                "x": tile_x,
-                "y": tile_y,
-                "z": zoom
-            },
-            "center_coordinates": {
-                "latitude": latitude,
-                "longitude": longitude
-            },
-            "tile_url": tile_url,
-            "tile_size": f"{tile_size}x{tile_size}",
-            "format": "PNG"
-        }
-        
-        # If requested, fetch the actual image data
-        if return_image_data:
-            try:
-                response = requests.get(tile_url, params=params, timeout=15)
-                response.raise_for_status()
-                
-                # Encode image as base64
-                result["image_data"] = response.content
-                result["image_format"] = "image/png"
-                
-            except requests.RequestException as e:
-                return {
-                    "success": False,
-                    "error": f"Failed to fetch tile image: {str(e)}",
-                    "tile_url": tile_url
-                }
-        
-        return result
+        # Fetch the actual image data
+        try:
+            response = requests.get(tile_url, params=params, timeout=15)
+            response.raise_for_status()
+            
+            # Return the map tile as Image object
+            return Image(data=response.content, format="image/png")
+            
+        except requests.RequestException as e:
+            return {
+                "success": False,
+                "error": f"Failed to fetch tile image: {str(e)}",
+                "tile_url": tile_url
+            }
         
     except Exception as e:
         return {
@@ -1151,7 +1128,7 @@ def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15,
 
 @mcp.tool()
 def generate_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, 
-                                       include_image_data: bool = False) -> Dict:
+                                       style: str = "navigation") -> Union[Image, Dict]:
     """
     Generate a static map tile from coordinates using ArcGIS basemap tiles
     
@@ -1159,41 +1136,27 @@ def generate_static_map_from_coordinates(latitude: float, longitude: float, zoom
         latitude: Center latitude for the map
         longitude: Center longitude for the map
         zoom: Zoom level (0-22, default: 15)
-        include_image_data: If True, return base64 encoded image data in the dict
+        style: Map style (default: "navigation")
         
     Returns:
-        Dictionary containing static map tile information (and image data if requested)
+        Image object when successful, error dict when failed
     """
-    # Return metadata dict
-    tile_result = get_static_basemap_tile(latitude, longitude, zoom, return_image_data=include_image_data)
-    
-    if not tile_result["success"]:
-        return tile_result
-    
-    # Add additional map context
-    tile_result["map_context"] = {
-        "service": "ArcGIS World Basemap v2",
-        "projection": "Web Mercator (EPSG:3857)",
-        "zoom_description": get_zoom_level_description(zoom),
-        "coverage": "Global"
-    }
-    
-    return tile_result
+    return get_static_basemap_tile(latitude, longitude, zoom, style_name=style)
 
 
 @mcp.tool()
 def generate_static_map_from_address(address: str, zoom: int = 15, 
-                                   include_image_data: bool = False) -> Dict:
+                                   style: str = "navigation") -> Union[Image, Dict]:
     """
     Generate a static map tile from an address using ArcGIS basemap tiles
     
     Args:
         address: Address or place name to map
         zoom: Zoom level (0-22, default: 15)
-        include_image_data: If True, return base64 encoded image data in the dict
+        style: Map style (default: "navigation")
         
     Returns:
-        Dictionary containing map tile information and geocoding results (and image data if requested)
+        Image object when successful, error dict when failed
     """
     # First geocode the address
     geocode_result = geocode_address(address)
@@ -1208,23 +1171,11 @@ def generate_static_map_from_address(address: str, zoom: int = 15,
     latitude = coords["latitude"]
     longitude = coords["longitude"]
     
-    # Generate the static map tile metadata
-    tile_result = generate_static_map_from_coordinates(latitude, longitude, zoom, include_image_data)
-    
-    if not tile_result["success"]:
-        return tile_result
-    
-    # Add geocoding information to the result
-    tile_result["geocoding"] = {
-        "input_address": address,
-        "formatted_address": geocode_result["formatted_address"],
-        "geocoding_score": geocode_result["score"]
-    }
-    
-    return tile_result
+    # Generate the static map tile
+    return get_static_basemap_tile(latitude, longitude, zoom, style_name=style)
 
 @mcp.tool()
-def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, style: str = None) -> Image:
+def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, style: str = None) -> Union[Image, Dict]:
     """
     Renders a static map tile from coordinates using ArcGIS basemap tiles as binary image.
     The result can be directly used in chat UIs that support image rendering.
@@ -1236,27 +1187,16 @@ def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: 
         style: Map style (optional, defaults to "navigation")
         
     Returns:
-        Image object containing the static map tile as binary data.
+        Image object when successful, error dict when failed
     """
     # Use default style if not provided
     if style is None:
         style = "navigation"
     
-    tile_result = get_static_basemap_tile(latitude, longitude, zoom, return_image_data=True, style_name=style)
-
-    if not tile_result["success"]:
-        # Create a simple error image instead of returning dict
-        error_message = tile_result.get("error", "Map generation failed")
-        # For now, return an Image with minimal error data
-        # In a real implementation, you might generate an actual error image
-        error_data = f"Error: {error_message}".encode('utf-8')
-        return Image(data=error_data, format="text/plain")
-
-    # Return the map tile as raw image data
-    return Image(data=tile_result["image_data"], format=tile_result["image_format"])
+    return get_static_basemap_tile(latitude, longitude, zoom, style_name=style)
 
 @mcp.tool()
-def render_static_map_from_location(location: str, zoom: int = None, style: str = None) -> Image:
+def render_static_map_from_location(location: str, zoom: int = None, style: str = None) -> Union[Image, Dict]:
     """
     Renders a static map tile from a location string (address, place name, etc.).
     Automatically geocodes the location and adapts zoom level and style based on location type.
@@ -1267,15 +1207,16 @@ def render_static_map_from_location(location: str, zoom: int = None, style: str 
         style: Optional style override (if not provided, auto-determined from location type)
         
     Returns:
-        Image object containing the static map tile as binary data.
+        Image object when successful, error dict when failed
     """
     # First geocode the location
     geocode_result = geocode_address(location)
     
     if not geocode_result["success"]:
-        error_message = f"Failed to geocode location '{location}': {geocode_result.get('error', 'Unknown error')}"
-        error_data = f"Error: {error_message}".encode('utf-8')
-        return Image(data=error_data, format="text/plain")
+        return {
+            "success": False,
+            "error": f"Failed to geocode location '{location}': {geocode_result.get('error', 'Unknown error')}"
+        }
     
     # Extract coordinates
     coords = geocode_result["coordinates"]
@@ -1292,7 +1233,7 @@ def render_static_map_from_location(location: str, zoom: int = None, style: str 
         style = get_style_for_location_type(location_type)
     
     # Render the map
-    return render_static_map_from_coordinates(latitude, longitude, zoom, style)
+    return get_static_basemap_tile(latitude, longitude, zoom, style_name=style)
 
 def get_zoom_level_description(zoom: int) -> str:
     """
