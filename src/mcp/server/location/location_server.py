@@ -1,8 +1,8 @@
 from mcp.server.fastmcp import FastMCP, Image
 import requests
 import math
-import base64
-from typing import Dict, Optional, List, Union
+from typing import Dict, Optional, Union
+from basemap_styles import BasemapSubStyle, SUPPORTED_BASEMAP_STYLES
 from location_config import ArcGISApiKeyManager
 
 # Create an MCP server
@@ -892,7 +892,20 @@ def generate_map_url(address: str, zoom_level: int = 15) -> Dict:
     
     Args:
         address: The geocoded address to generate map for
-        zoom_level: Map zoom level (default: 15)
+        zoom_level: Optional zoom level override (0-22, default: 15)
+            - 0:  "World view"            - Entire globe visible.
+            - 1-2: "Continental view"     - Large continents or ocean basins.
+            - 3-4: "Country view"         - Whole countries or large regions.
+            - 5-6: "State/Province view"  - States, provinces, or similar subdivisions.
+            - 7-8: "Regional view"        - Large regions, multiple cities.
+            - 9:   "Metropolitan area"    - Major city and surroundings.
+            - 10-11: "City view"          - City and immediate area.
+            - 12-13: "Town view"          - Towns or city districts.
+            - 14-15: "Neighborhood"       - Neighborhoods or small towns.
+            - 16-17: "Street level"       - Individual streets and blocks.
+            - 18-19: "Building level"     - Individual buildings.
+            - 20-21: "Building detail"    - Detailed building features.
+            - 22:  "Maximum detail"       - Highest available detail.
         
     Returns:
         Dictionary containing various map service URLs
@@ -997,7 +1010,20 @@ def display_location_on_map(address: str, include_html: bool = True, zoom_level:
     Args:
         address: The address to display on map
         include_html: Whether to include HTML embed code (default: True)
-        zoom_level: Map zoom level (default: 15)
+        zoom_level: Optional zoom level override (0-22, default: 15)
+            - 0:  "World view"            - Entire globe visible.
+            - 1-2: "Continental view"     - Large continents or ocean basins.
+            - 3-4: "Country view"         - Whole countries or large regions.
+            - 5-6: "State/Province view"  - States, provinces, or similar subdivisions.
+            - 7-8: "Regional view"        - Large regions, multiple cities.
+            - 9:   "Metropolitan area"    - Major city and surroundings.
+            - 10-11: "City view"          - City and immediate area.
+            - 12-13: "Town view"          - Towns or city districts.
+            - 14-15: "Neighborhood"       - Neighborhoods or small towns.
+            - 16-17: "Street level"       - Individual streets and blocks.
+            - 18-19: "Building level"     - Individual buildings.
+            - 20-21: "Building detail"    - Detailed building features.
+            - 22:  "Maximum detail"       - Highest available detail.
         
     Returns:
         Complete map display package including URLs and embed code
@@ -1057,17 +1083,30 @@ def lat_lon_to_tile_coordinates(latitude: float, longitude: float, zoom: int) ->
 
 
 def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15, 
-                           tile_size: int = 512, style_name: str = "navigation") -> Union[Image, Dict]:
+                           tile_size: int = 512, basemap_style: BasemapSubStyle = BasemapSubStyle.NAVIGATION) -> Union[Image, Dict]:
     """
     Fetch a static basemap tile from ArcGIS Location Platform
     
     Args:
         latitude: Center latitude for the tile
         longitude: Center longitude for the tile
-        zoom: Zoom level (0-22, default: 15)
+        zoom: Optional zoom level override (0-22, default: 15)
+            - 0:  "World view"            - Entire globe visible.
+            - 1-2: "Continental view"     - Large continents or ocean basins.
+            - 3-4: "Country view"         - Whole countries or large regions.
+            - 5-6: "State/Province view"  - States, provinces, or similar subdivisions.
+            - 7-8: "Regional view"        - Large regions, multiple cities.
+            - 9:   "Metropolitan area"    - Major city and surroundings.
+            - 10-11: "City view"          - City and immediate area.
+            - 12-13: "Town view"          - Towns or city districts.
+            - 14-15: "Neighborhood"       - Neighborhoods or small towns.
+            - 16-17: "Street level"       - Individual streets and blocks.
+            - 18-19: "Building level"     - Individual buildings.
+            - 20-21: "Building detail"    - Detailed building features.
+            - 22:  "Maximum detail"       - Highest available detail.
         tile_size: Tile size in pixels (default: 512)
-        style_name: Optional style name for the basemap tile (default: "navigation")
-        
+        basemap_style: Optional basemap style for the tile (default: "navigation")
+
     Returns:
         Image object when successful, error dict when failed
     """
@@ -1097,6 +1136,7 @@ def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15,
         
         # Build the ArcGIS basemap tile URL
         style_family = "arcgis"
+        style_name = basemap_style.value.lower()  # Use the enum value as the style name
         base_url = f"https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/{style_family}/{style_name}/static/tile"
         tile_url = f"{base_url}/{zoom}/{tile_y}/{tile_x}"
         
@@ -1135,13 +1175,35 @@ def generate_static_map_from_coordinates(latitude: float, longitude: float, zoom
     Args:
         latitude: Center latitude for the map
         longitude: Center longitude for the map
-        zoom: Zoom level (0-22, default: 15)
-        style: Map style (default: "navigation")
+        zoom: Optional zoom level override (0-22, default: 15)
+            - 0:  "World view"            - Entire globe visible.
+            - 1-2: "Continental view"     - Large continents or ocean basins.
+            - 3-4: "Country view"         - Whole countries or large regions.
+            - 5-6: "State/Province view"  - States, provinces, or similar subdivisions.
+            - 7-8: "Regional view"        - Large regions, multiple cities.
+            - 9:   "Metropolitan area"    - Major city and surroundings.
+            - 10-11: "City view"          - City and immediate area.
+            - 12-13: "Town view"          - Towns or city districts.
+            - 14-15: "Neighborhood"       - Neighborhoods or small towns.
+            - 16-17: "Street level"       - Individual streets and blocks.
+            - 18-19: "Building level"     - Individual buildings.
+            - 20-21: "Building detail"    - Detailed building features.
+            - 22:  "Maximum detail"       - Highest available detail.
+        style: Map style (optional, defaults to "navigation")
+            - Streets: "navigation", "navigation-night", "streets", "streets-night", "community"
+            - Topography: "outdoor", "oceans"
+            - Satellite: "imagery", "imagery-labels"
+            - Reference: "light-gray", "dark-gray", "human-geography", "human-geography-dark"
+            - Creative: "nova", "midcentury", "newspaper"
         
     Returns:
         Image object when successful, error dict when failed
     """
-    return get_static_basemap_tile(latitude, longitude, zoom, style_name=style)
+    basemap_style = BasemapSubStyle.from_string(style)
+    if not basemap_style:
+        basemap_style = BasemapSubStyle.NAVIGATION  # Default to navigation style if invalid style provided
+
+    return get_static_basemap_tile(latitude, longitude, zoom, basemap_style=basemap_style)
 
 
 @mcp.tool()
@@ -1152,8 +1214,26 @@ def generate_static_map_from_address(address: str, zoom: int = 15,
     
     Args:
         address: Address or place name to map
-        zoom: Zoom level (0-22, default: 15)
-        style: Map style (default: "navigation")
+        zoom: Optional zoom level override (0-22, default: 15)
+            - 0:  "World view"            - Entire globe visible.
+            - 1-2: "Continental view"     - Large continents or ocean basins.
+            - 3-4: "Country view"         - Whole countries or large regions.
+            - 5-6: "State/Province view"  - States, provinces, or similar subdivisions.
+            - 7-8: "Regional view"        - Large regions, multiple cities.
+            - 9:   "Metropolitan area"    - Major city and surroundings.
+            - 10-11: "City view"          - City and immediate area.
+            - 12-13: "Town view"          - Towns or city districts.
+            - 14-15: "Neighborhood"       - Neighborhoods or small towns.
+            - 16-17: "Street level"       - Individual streets and blocks.
+            - 18-19: "Building level"     - Individual buildings.
+            - 20-21: "Building detail"    - Detailed building features.
+            - 22:  "Maximum detail"       - Highest available detail.
+        style: Map style (optional, defaults to "navigation")
+            - Streets: "navigation", "navigation-night", "streets", "streets-night", "community"
+            - Topography: "outdoor", "oceans"
+            - Satellite: "imagery", "imagery-labels"
+            - Reference: "light-gray", "dark-gray", "human-geography", "human-geography-dark"
+            - Creative: "nova", "midcentury", "newspaper"
         
     Returns:
         Image object when successful, error dict when failed
@@ -1170,44 +1250,127 @@ def generate_static_map_from_address(address: str, zoom: int = 15,
     coords = geocode_result["coordinates"]
     latitude = coords["latitude"]
     longitude = coords["longitude"]
+
+    basemap_style = BasemapSubStyle.from_string(style)
+    if not basemap_style:
+        basemap_style = BasemapSubStyle.NAVIGATION  # Default to navigation style if invalid style provided
     
     # Generate the static map tile
-    return get_static_basemap_tile(latitude, longitude, zoom, style_name=style)
+    return get_static_basemap_tile(latitude, longitude, zoom, basemap_style=basemap_style)
 
 @mcp.tool()
-def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, style: str = None) -> Union[Image, Dict]:
+def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: int, style: str = "navigation") -> Union[Image, Dict]:
     """
     Renders a static map tile from coordinates using ArcGIS basemap tiles as binary image.
     The result can be directly used in chat UIs that support image rendering.
 
     Args:
-        latitude: Center latitude for the map
-        longitude: Center longitude for the map
-        zoom: Zoom level (0-22, default: 15)
-        style: Map style (optional, defaults to "navigation")
-        
+        latitude: Center latitude for the map.
+        longitude: Center longitude for the map.
+        zoom: Zoom level (0-22) of the map view, where:
+            - 0:  "World view"            - Entire globe visible (e.g., Earth).
+            - 1:  "Continental view"      - Large continents or ocean basins (e.g., Africa).
+            - 2:  "Continental view"      - Large continents or ocean basins (e.g., Europe).
+            - 3:  "Country view"          - Whole countries or large regions (e.g., USA).
+            - 4:  "Country view"          - Whole countries or large regions (e.g., France).
+            - 5:  "State/Province view"   - States, provinces, or similar subdivisions (e.g., California).
+            - 6:  "State/Province view"   - States, provinces, or similar subdivisions (e.g., Bavaria).
+            - 7:  "Regional view"         - Large regions, multiple cities (e.g., Bay Area).
+            - 8:  "Regional view"         - Large regions, multiple cities (e.g., Ruhr Valley).
+            - 9:  "Metropolitan area"     - Major city and surroundings (e.g., New York City).
+            - 10: "City view"             - City and immediate area (e.g., San Francisco).
+            - 11: "City view"             - City and immediate area (e.g., Berlin).
+            - 12: "Town view"             - Towns or city districts (e.g., Palo Alto).
+            - 13: "Town view"             - Towns or city districts (e.g., Greenwich).
+            - 14: "Neighborhood"          - Neighborhoods or small towns (e.g., Mission District).
+            - 15: "Neighborhood"          - Neighborhoods or small towns (e.g., Montmartre).
+            - 16: "Street level"          - Individual streets and blocks (e.g., Market Street).
+            - 17: "Street level"          - Individual streets and blocks (e.g., Champs-Élysées).
+            - 18: "Building level"        - Individual buildings (e.g., Empire State Building).
+            - 19: "Building level"        - Individual buildings (e.g., Eiffel Tower).
+            - 20: "Building detail"       - Detailed building features (e.g., floor plans).
+            - 21: "Building detail"       - Detailed building features (e.g., rooftop views).
+            - 22: "Building detail"       - Detailed building features (e.g., architectural details).
+        style: Optional basemap style to use (default: "navigation").
+
+    Examples:
+        - To display the entire globe, use zoom level 0.
+        - To display a continent, use zoom levels 1-2.
+        - To display a country, use zoom levels 3-4.
+        - To display a state or province, use zoom levels 5-6.
+        - To display a region, use zoom levels 7-8.
+        - To display a metropolitan area, use zoom level 9.
+        - To display a city, use zoom levels 10-11.
+        - To display a town or district, use zoom levels 12-13.
+        - To display a neighborhood, use zoom levels 14-15.
+        - To display a street, use zoom levels 16-17.
+        - To display a building, use zoom levels 18-19.
+        - To display building details, use zoom levels 20-22.
+
     Returns:
-        Image object when successful, error dict when failed
+        Binary image or metadata dictionary containing the rendered map tile.
     """
-    # Use default style if not provided
-    if style is None:
-        style = "navigation"
-    
-    return get_static_basemap_tile(latitude, longitude, zoom, style_name=style)
+    basemap_style = BasemapSubStyle.from_string(style)
+    if not basemap_style:
+        basemap_style = BasemapSubStyle.NAVIGATION  # Default to navigation style if invalid style provided
+
+    return get_static_basemap_tile(latitude, longitude, zoom, basemap_style=basemap_style)
 
 @mcp.tool()
-def render_static_map_from_location(location: str, zoom: int = None, style: str = None) -> Union[Image, Dict]:
+def render_static_map_from_location(location: str, zoom: int, style: str = "navigation") -> Union[Image, Dict]:
     """
     Renders a static map tile from a location string (address, place name, etc.).
     Automatically geocodes the location and adapts zoom level and style based on location type.
     
     Args:
         location: Location string (e.g., "Germany", "Bonn, Germany", "1600 Pennsylvania Ave")
-        zoom: Optional zoom level override (if not provided, auto-determined from location type)
-        style: Optional style override (if not provided, auto-determined from location type)
-        
+        zoom: Zoom level (0-22) of the map view, where:
+            - 0:  "World view"            - Entire globe visible (e.g., Earth).
+            - 1:  "Continental view"      - Large continents or ocean basins (e.g., Africa).
+            - 2:  "Continental view"      - Large continents or ocean basins (e.g., Europe).
+            - 3:  "Country view"          - Whole countries or large regions (e.g., USA).
+            - 4:  "Country view"          - Whole countries or large regions (e.g., France).
+            - 5:  "State/Province view"   - States, provinces, or similar subdivisions (e.g., California).
+            - 6:  "State/Province view"   - States, provinces, or similar subdivisions (e.g., Bavaria).
+            - 7:  "Regional view"         - Large regions, multiple cities (e.g., Bay Area).
+            - 8:  "Regional view"         - Large regions, multiple cities (e.g., Ruhr Valley).
+            - 9:  "Metropolitan area"     - Major city and surroundings (e.g., New York City).
+            - 10: "City view"             - City and immediate area (e.g., San Francisco).
+            - 11: "City view"             - City and immediate area (e.g., Berlin).
+            - 12: "Town view"             - Towns or city districts (e.g., Palo Alto).
+            - 13: "Town view"             - Towns or city districts (e.g., Greenwich).
+            - 14: "Neighborhood"          - Neighborhoods or small towns (e.g., Mission District).
+            - 15: "Neighborhood"          - Neighborhoods or small towns (e.g., Montmartre).
+            - 16: "Street level"          - Individual streets and blocks (e.g., Market Street).
+            - 17: "Street level"          - Individual streets and blocks (e.g., Champs-Élysées).
+            - 18: "Building level"        - Individual buildings (e.g., Empire State Building).
+            - 19: "Building level"        - Individual buildings (e.g., Eiffel Tower).
+            - 20: "Building detail"       - Detailed building features (e.g., floor plans).
+            - 21: "Building detail"       - Detailed building features (e.g., rooftop views).
+            - 22: "Building detail"       - Detailed building features (e.g., architectural details).
+        style: Map style (optional, defaults to "navigation")
+            - Streets: "navigation", "navigation-night", "streets", "streets-night", "community"
+            - Topography: "outdoor", "oceans"
+            - Satellite: "imagery", "imagery-labels"
+            - Reference: "light-gray", "dark-gray", "human-geography", "human-geography-dark"
+            - Creative: "nova", "midcentury", "newspaper"
+
+    Examples:
+        - To display the entire globe, use zoom level 0.
+        - To display a continent, use zoom levels 1-2.
+        - To display a country, use zoom levels 3-4.
+        - To display a state or province, use zoom levels 5-6.
+        - To display a region, use zoom levels 7-8.
+        - To display a metropolitan area, use zoom level 9.
+        - To display a city, use zoom levels 10-11.
+        - To display a town or district, use zoom levels 12-13.
+        - To display a neighborhood, use zoom levels 14-15.
+        - To display a street, use zoom levels 16-17.
+        - To display a building, use zoom levels 18-19.
+        - To display building details, use zoom levels 20-22.
+
     Returns:
-        Image object when successful, error dict when failed
+        - Image object when successful, error dict when failed
     """
     # First geocode the location
     geocode_result = geocode_address(location)
@@ -1223,28 +1386,50 @@ def render_static_map_from_location(location: str, zoom: int = None, style: str 
     latitude = coords["latitude"]
     longitude = coords["longitude"]
     
-    # Determine location type and auto-select zoom/style if not provided
+    # Determine location type and auto-select zoom if not provided
     location_type = determine_location_type(geocode_result.get("attributes", {}))
     
+    # Determine zoom level based on location type
     if zoom is None:
         zoom = get_zoom_for_location_type(location_type)
-    
-    if style is None:
-        style = get_style_for_location_type(location_type)
+
+    basemap_style = BasemapSubStyle.from_string(style)
+    if not basemap_style:
+        basemap_style = BasemapSubStyle.NAVIGATION  # Default to navigation style if invalid style provided
     
     # Render the map
-    return get_static_basemap_tile(latitude, longitude, zoom, style_name=style)
+    return get_static_basemap_tile(latitude, longitude, zoom, basemap_style=basemap_style)
 
 def get_zoom_level_description(zoom: int) -> str:
     """
-    Get a human-readable description of the zoom level
+    Get a human-readable description of the map zoom level.
+    This function translates a numerical zoom level (typically used in web mapping applications)
+    into a descriptive string that represents the typical geographic scope visible at that zoom.
+    The descriptions are based on standard web map zoom conventions, ranging from a global view
+    to maximum building detail.
+
+    Supported zoom levels and their descriptions:
+        0:  "World view"            - Entire globe visible.
+        1-2: "Continental view"     - Large continents or ocean basins.
+        3-4: "Country view"         - Whole countries or large regions.
+        5-6: "State/Province view"  - States, provinces, or similar subdivisions.
+        7-8: "Regional view"        - Large regions, multiple cities.
+        9:   "Metropolitan area"    - Major city and surroundings.
+        10-11: "City view"          - City and immediate area.
+        12-13: "Town view"          - Towns or city districts.
+        14-15: "Neighborhood"       - Neighborhoods or small towns.
+        16-17: "Street level"       - Individual streets and blocks.
+        18-19: "Building level"     - Individual buildings.
+        20-21: "Building detail"    - Detailed building features.
+        22:  "Maximum detail"       - Highest available detail.
     
     Args:
         zoom: Zoom level (0-22)
         
     Returns:
-        Description string
+        Human-readable description of the zoom level. If the zoom level is not recognized, returns "Zoom level {zoom}".
     """
+    # Zoom level descriptions based on standard zoom levels
     descriptions = {
         0: "World view",
         1: "Continental view", 
@@ -1275,64 +1460,145 @@ def get_zoom_level_description(zoom: int) -> str:
 
 def determine_location_type(geocoding_attributes: Dict) -> str:
     """
-    Determine location type based on geocoding attributes
-    
+    Determine location type based on geocoding attributes of a geocoding result.
+
+    Specific type values for point and locality matches also include
+    "block", "sector", "neighborhood", "district", "city", "metroarea", "county", "state or province", "territory", "country", and "zone".
+
     Args:
-        geocoding_attributes: Attributes from geocoding response
+        geocoding_attributes: Attributes from geocoding result
         
     Returns:
-        Location type: "country", "city", or "address"
+        Location type: "country", "city", "community", "address", "postal", specific types for locality and poi, or "other"
     """
     addr_type = geocoding_attributes.get("Addr_type", "").lower()
-    
-    # Country-level locations
-    if addr_type in ["country", "admin1", "state", "province"]:
-        return "country"
-    
-    # Address-level locations
-    if addr_type in ["streetaddress", "pointaddress", "buildingname", "street", "address"]:
+    specific_type = geocoding_attributes.get("Type", "").lower()
+
+    # Address-level (most precise)
+    address_types = [
+        "subaddress", "pointaddress", "parcel", "streetaddress", "streetaddressext",
+        "streetint", "streetmidblock", "distanceMarker"
+    ]
+    if addr_type in address_types:
         return "address"
-    
-    # Default to city-level for populated places, localities, etc.
-    return "city"
+
+    # POI (Point of Interest)
+    if addr_type == "poi":
+        return specific_type if specific_type else "poi"
+
+    # Street-level (community/neighborhood)
+    if addr_type in ["streetname"]:
+        return "community"
+
+    # Postal code
+    if addr_type in ["postal", "postalext", "postalloc"]:
+        return "postal"
+
+    # Locality (city, town, etc.)
+    if addr_type == "locality":
+        return specific_type if specific_type else "city"
+
+    # Country/state/region
+    if addr_type in ["country", "admin1", "state", "province", "territory"]:
+        return "country"
+
+    # Feature (custom locator), LatLong, XY, YX, MGRS, USNG, etc.
+    if addr_type in ["feature", "latlong", "xy", "yx", "mgrs", "usng"]:
+        return "other"
+
+    # Fallback
+    return "other"
 
 def get_zoom_for_location_type(location_type: str) -> int:
     """
     Get appropriate zoom level for location type
-    
+
     Args:
-        location_type: "country", "city", "community", or "address"
-        
+        location_type: e.g. "country", "city", "community", "address", "block", "sector", "neighborhood",
+                        "district", "metroarea", "county", "state or province", "territory", "zone", etc.
+
     Returns:
         Zoom level (0-22)
     """
-    zoom_mapping = {
-        "country": 4,       # Country view (zoom 3-4)
-        "city": 11,         # City view (zoom 10-13)
-        "community": 11,    # Community view (zoom 10-13)
-        "address": 16       # Address view (zoom 15-17)
-    }
-    
-    return zoom_mapping.get(location_type, 15)  # Default to 15
+    # Normalize for matching
+    lt = location_type.lower().replace("_", " ").strip()
 
-def get_style_for_location_type(location_type: str) -> str:
-    """
-    Get appropriate style for location type
-    
-    Args:
-        location_type: "country", "city", "community", or "address"
-        
-    Returns:
-        Style name for basemap
-    """
-    style_mapping = {
-        "country": "world",      # World/standard style for country view
-        "city": "navigation",    # Navigation style for urban areas
-        "community": "navigation", # Navigation style for communities
-        "address": "navigation"  # Detailed navigation for addresses
+    zoom_mapping = {
+        "world": 0,
+        "continent": 1,
+        "continental": 1,
+        "country": 4,
+        "territory": 4,
+        "zone": 4,
+        "state": 5,
+        "province": 5,
+        "state or province": 5,
+        "admin1": 5,
+        "county": 7,
+        "district": 8,
+        "metroarea": 9,
+        "metropolitan area": 9,
+        "city": 11,
+        "town": 12,
+        "community": 13,
+        "neighborhood": 14,
+        "sector": 14,
+        "block": 15,
+        "street": 16,
+        "street level": 16,
+        "address": 16,
+        "building": 18,
+        "building level": 18,
+        "building detail": 20,
+        "postal": 13,
+        "postal code": 13,
+        "poi": 17,
+        "feature": 15,
+        "other": 15,
     }
-    
-    return style_mapping.get(location_type, "navigation")  # Default to navigation
+
+    # Try direct match
+    if lt in zoom_mapping:
+        return zoom_mapping[lt]
+
+    # Fallbacks for partial matches
+    if "country" in lt:
+        return 4
+    if "state" in lt or "province" in lt:
+        return 5
+    if "county" in lt:
+        return 7
+    if "district" in lt:
+        return 8
+    if "metro" in lt:
+        return 9
+    if "city" in lt:
+        return 11
+    if "town" in lt:
+        return 12
+    if "community" in lt:
+        return 13
+    if "neighborhood" in lt:
+        return 14
+    if "sector" in lt:
+        return 14
+    if "block" in lt:
+        return 15
+    if "street" in lt:
+        return 16
+    if "address" in lt:
+        return 16
+    if "building" in lt:
+        return 18
+    if "postal" in lt:
+        return 13
+    if "poi" in lt:
+        return 17
+    if "feature" in lt:
+        return 15
+
+    # Default to neighborhood/street level
+    return 15
 
 @mcp.tool()
 def display_location_with_elevation(address: str, include_html: bool = True, zoom_level: int = 15) -> Dict:
