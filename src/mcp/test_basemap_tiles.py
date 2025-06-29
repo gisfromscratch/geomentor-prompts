@@ -61,38 +61,25 @@ def test_static_basemap_tile_structure():
     """Test static basemap tile function structure"""
     print("Testing static basemap tile structure...")
     
-    # Test with valid coordinates
+    # Test with valid coordinates (this will likely fail without network, but should handle gracefully)
     lat, lon = 40.7128, -74.0060  # New York City
     zoom = 12
     
     result = get_static_basemap_tile(lat, lon, zoom)
     
-    # Check basic structure
-    assert "success" in result, "Result should have success field"
-    assert "tile_coordinates" in result, "Result should have tile_coordinates"
-    assert "center_coordinates" in result, "Result should have center_coordinates"
-    assert "tile_url" in result, "Result should have tile_url"
-    
-    if result["success"]:
-        # Check tile coordinates structure
-        tile_coords = result["tile_coordinates"]
-        assert "x" in tile_coords, "Tile coordinates should have x"
-        assert "y" in tile_coords, "Tile coordinates should have y"
-        assert "z" in tile_coords, "Tile coordinates should have z"
-        assert tile_coords["z"] == zoom, "Zoom level should match input"
-        
-        # Check center coordinates
-        center_coords = result["center_coordinates"]
-        assert center_coords["latitude"] == lat, "Latitude should match input"
-        assert center_coords["longitude"] == lon, "Longitude should match input"
-        
-        # Check tile URL format
-        tile_url = result["tile_url"]
-        assert "basemap.arcgis.com" in tile_url, "Should use ArcGIS basemap service"
-        assert "World_Basemap_v2" in tile_url, "Should use World Basemap v2"
-        assert f"/{zoom}/" in tile_url, "URL should contain zoom level"
-        
-        print(f"   ✓ Generated tile URL: {tile_url}")
+    # Check that result is either an Image object or an error dict
+    if hasattr(result, 'data'):
+        # It's an Image object - success case
+        print("   ✓ Successfully returned Image object")
+        assert hasattr(result, 'format'), "Image should have format attribute"
+        print(f"   ✓ Image format: {result.format}")
+    else:
+        # It's an error dict - expected without network
+        assert isinstance(result, dict), "Non-Image result should be dict"
+        assert "success" in result, "Error dict should have success field"
+        assert not result["success"], "Error dict should have success=False"
+        assert "error" in result, "Error dict should have error message"
+        print(f"   Note: Returned error (expected without network): {result.get('error', 'unknown error')}")
     
     print("✓ Static basemap tile structure working correctly")
 
@@ -103,23 +90,29 @@ def test_static_tile_validation():
     
     # Test invalid zoom levels
     result = get_static_basemap_tile(40.7128, -74.0060, -1)
+    assert isinstance(result, dict), "Should return error dict for invalid input"
     assert not result["success"], "Should fail with negative zoom"
     assert "zoom level" in result["error"].lower(), "Error should mention zoom level"
     
     result = get_static_basemap_tile(40.7128, -74.0060, 25)
+    assert isinstance(result, dict), "Should return error dict for invalid input"
     assert not result["success"], "Should fail with zoom > 22"
     
     # Test invalid coordinates
     result = get_static_basemap_tile(91, -74.0060, 10)
+    assert isinstance(result, dict), "Should return error dict for invalid input"
     assert not result["success"], "Should fail with latitude > 90"
     
     result = get_static_basemap_tile(40.7128, 181, 10)
+    assert isinstance(result, dict), "Should return error dict for invalid input"
     assert not result["success"], "Should fail with longitude > 180"
     
     result = get_static_basemap_tile(-91, -74.0060, 10)
+    assert isinstance(result, dict), "Should return error dict for invalid input"
     assert not result["success"], "Should fail with latitude < -90"
     
     result = get_static_basemap_tile(40.7128, -181, 10)
+    assert isinstance(result, dict), "Should return error dict for invalid input"
     assert not result["success"], "Should fail with longitude < -180"
     
     print("✓ Static tile validation working correctly")
@@ -131,32 +124,32 @@ def test_mcp_tools_structure():
     
     # Test coordinate-based tool
     result = generate_static_map_from_coordinates(40.7128, -74.0060, 12)
-    assert "success" in result, "Coordinate tool should have success field"
     
-    if result["success"]:
-        assert "map_context" in result, "Should include map context"
-        assert "service" in result["map_context"], "Should include service info"
-        assert "projection" in result["map_context"], "Should include projection info"
-        assert "zoom_description" in result["map_context"], "Should include zoom description"
-        
-        # Verify no image data by default
-        assert "image_data" not in result, "Should not include image data by default"
-        
-        print(f"   ✓ Map context: {result['map_context']['service']}")
-        print(f"   ✓ Zoom description: {result['map_context']['zoom_description']}")
+    # Should return either Image object or error dict
+    if hasattr(result, 'data'):
+        # It's an Image object - success case
+        print("   ✓ Successfully returned Image object from coordinate tool")
+        assert hasattr(result, 'format'), "Image should have format attribute"
+    else:
+        # It's an error dict - expected without network
+        assert isinstance(result, dict), "Non-Image result should be dict"
+        assert "success" in result, "Error dict should have success field"
+        assert not result["success"], "Error dict should have success=False"
+        print(f"   Note: Coordinate tool failed (expected): {result.get('error', 'unknown error')}")
     
     # Test address-based tool (will likely fail without network, but should handle gracefully)
     result = generate_static_map_from_address("Times Square, New York", 14)
-    assert "success" in result, "Address tool should have success field"
     
-    if result["success"]:
-        assert "geocoding" in result, "Should include geocoding info"
-        assert "input_address" in result["geocoding"], "Should include input address"
-        print("   ✓ Address-based map generation successful")
+    if hasattr(result, 'data'):
+        # It's an Image object - success case
+        print("   ✓ Successfully returned Image object from address tool")
+        assert hasattr(result, 'format'), "Image should have format attribute"
     else:
-        # Expected in test environment without network
-        assert "error" in result, "Should have error message when unsuccessful"
-        print(f"   Note: Address-based mapping failed (expected): {result.get('error', 'unknown error')}")
+        # It's an error dict - expected without network
+        assert isinstance(result, dict), "Non-Image result should be dict"
+        assert "success" in result, "Error dict should have success field"
+        assert not result["success"], "Error dict should have success=False"
+        print(f"   Note: Address tool failed (expected): {result.get('error', 'unknown error')}")
     
     print("✓ MCP tools structure working correctly")
 
@@ -192,25 +185,20 @@ def test_image_data_option():
     """Test the image data return option"""
     print("Testing image data option...")
     
-    # Test with image data requested (will likely fail without network)
-    result = get_static_basemap_tile(40.7128, -74.0060, 10, return_image_data=True)
+    # Test with valid coordinates (will likely fail without network)
+    result = get_static_basemap_tile(40.7128, -74.0060, 10)
     
-    if result["success"] and "image_data" in result:
+    if hasattr(result, 'data'):
         # If successful, verify image data structure
-        assert "image_data" in result, "Should include image data when requested"
-        assert "image_format" in result, "Should include image format"
-        assert result["image_format"] == "data:image/png;base64", "Should be PNG base64"
-        assert len(result["image_data"]) > 0, "Image data should not be empty"
+        assert hasattr(result, 'format'), "Image should have format attribute"
+        assert result.format == "image/png", "Should be PNG format"
+        assert len(result.data) > 0, "Image data should not be empty"
         print("   ✓ Image data retrieval successful")
     else:
         # Expected in test environment without network
+        assert isinstance(result, dict), "Non-Image result should be dict"
+        assert not result["success"], "Should be error dict"
         print("   Note: Image data retrieval failed (expected without network access)")
-    
-    # Test without image data (default)
-    result = get_static_basemap_tile(40.7128, -74.0060, 10, return_image_data=False)
-    if result["success"]:
-        assert "image_data" not in result, "Should not include image data when not requested"
-        print("   ✓ No image data when not requested")
     
     print("✓ Image data option working correctly")
 

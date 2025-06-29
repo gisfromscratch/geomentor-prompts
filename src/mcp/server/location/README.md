@@ -12,6 +12,8 @@ The Location MCP Server includes geocoding, reverse geocoding, elevation data se
 - **Interactive Maps**: Generate embeddable maps for chat UI display
 - **Static Basemap Tiles**: Fetch static map tiles from ArcGIS Location Platform basemaps
 - **Visual Map Representation**: Generate PNG tile images for locations and coordinates
+- **🆕 Smart Map Rendering**: Automatic zoom level and style selection based on location type
+- **🆕 Location String Support**: Render maps directly from address/place strings with auto-geocoding
 - **Nearby Places Search**: Find places of interest around a location with category filtering
 - **Metadata Storage**: Store geocoded, elevation, and routing results for efficient retrieval
 - **Error Handling**: Robust error handling for failed requests
@@ -128,6 +130,34 @@ Reverse geocodes coordinates to get address and location information.
     "raw_response": {}
 }
 ```
+
+### `render_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, style: str = None)` 🆕
+Renders a static map tile from coordinates as a binary Image object for direct display in chat UIs.
+
+**Parameters:**
+- `latitude` (float): Center latitude for the map
+- `longitude` (float): Center longitude for the map  
+- `zoom` (int): Zoom level (0-22, default: 15)
+- `style` (str): Map style (optional, defaults to "navigation")
+
+**Returns:**
+Image object containing the static map tile as binary data, always returns Image even on errors.
+
+### `render_static_map_from_location(location: str, zoom: int = None, style: str = None)` 🆕
+Renders a static map from a location string with automatic zoom and style selection based on location type.
+
+**Parameters:**
+- `location` (str): Location string (address, place name, etc.)
+- `zoom` (int): Optional zoom override (auto-determined from location type if not provided)  
+- `style` (str): Optional style override (auto-determined from location type if not provided)
+
+**Returns:**
+Image object containing the static map tile as binary data.
+
+**Auto-Detection:**
+- Country-level → zoom 4, "world" style
+- City-level → zoom 11, "navigation" style
+- Address-level → zoom 16, "navigation" style
 
 ### `generate_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, include_image_data: bool = False)`
 Generate a static map tile from coordinates using ArcGIS basemap tiles.
@@ -360,6 +390,35 @@ Get places information near specific coordinates.
 **Example:** `places://40.7589,-73.9851`
 
 ## Usage Examples
+
+### Enhanced Map Rendering (NEW)
+```python
+# 🆕 Smart map rendering with auto-zoom and style detection
+country_map = render_static_map_from_location("Germany")  # Auto: zoom 4, world style
+city_map = render_static_map_from_location("Bonn, Germany")  # Auto: zoom 11, navigation style
+address_map = render_static_map_from_location("1600 Pennsylvania Ave")  # Auto: zoom 16, navigation style
+
+# Override auto-detection
+custom_map = render_static_map_from_location("Paris, France", zoom=8, style="world")
+
+# Enhanced coordinate rendering with custom style
+map_image = render_static_map_from_coordinates(40.7128, -74.0060, zoom=15, style="navigation")
+# Always returns Image object, even on errors
+```
+
+### Location Type Auto-Detection
+```python
+# The system automatically detects location granularity:
+
+# Country-level: "Germany", "United States" 
+# → zoom 4, "world" style, good for country boundaries
+
+# City-level: "Berlin, Germany", "New York, NY"
+# → zoom 11, "navigation" style, good for urban overviews  
+
+# Address-level: "1600 Pennsylvania Ave", "Times Square"
+# → zoom 16, "navigation" style, good for street-level detail
+```
 
 ### Static Basemap Tiles
 ```python
