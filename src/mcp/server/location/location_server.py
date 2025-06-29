@@ -1,7 +1,7 @@
 from mcp.server.fastmcp import FastMCP, Image
 import requests
 import math
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 from basemap_styles import BasemapSubStyle, SUPPORTED_BASEMAP_STYLES
 from location_config import ArcGISApiKeyManager
 
@@ -1165,6 +1165,78 @@ def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15,
             "error": f"Error generating basemap tile: {str(e)}"
         }
 
+def get_static_basemap_tiles(bbox: Dict[str, float], zoom: int, tile_size: int = 512, basemap_style: BasemapSubStyle = BasemapSubStyle.NAVIGATION) -> Dict:
+    """
+    Fetch static basemap tiles for a bounding box (bbox) at a specific zoom level.
+
+    Args:
+        bbox: Bounding box defined as dictionary of (xmin, ymin, xmax, ymax).
+        zoom: Zoom level (0-22).
+        tile_size: Tile size in pixels (default: 512).
+        basemap_style: Optional basemap style for the tiles (default: "navigation").
+
+    Returns:
+        Dictionary containing tile URLs and metadata for all tiles within the bbox.
+    """
+    try:
+        # Validate zoom level
+        if not 0 <= zoom <= 22:
+            return {
+                "success": False,
+                "error": f"Invalid zoom level {zoom}. Must be between 0 and 22."
+            }
+
+        # Validate bbox coordinates
+        xmin, ymin, xmax, ymax = bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"]
+        if not (-90 <= ymin <= 90 and -90 <= ymax <= 90):
+            return {
+                "success": False,
+                "error": "Latitude values in bbox must be between -90 and 90."
+            }
+        if not (-180 <= xmin <= 180 and -180 <= xmax <= 180):
+            return {
+                "success": False,
+                "error": "Longitude values in bbox must be between -180 and 180."
+            }
+
+        # Convert bbox to tile coordinates
+        zoom += 1  # Adjust zoom level for tile calculations
+        min_tile_x, min_tile_y = lat_lon_to_tile_coordinates(ymin, xmin, zoom)
+        max_tile_x, max_tile_y = lat_lon_to_tile_coordinates(ymax, xmax, zoom)
+
+        # Build tile URLs for all tiles within the bbox
+        style_family = "arcgis"
+        style_name = basemap_style.value.lower()
+        base_url = f"https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/{style_family}/{style_name}/static/tile"
+
+        tiles = []
+        for tile_x in range(min_tile_x, max_tile_x + 1):
+            for tile_y in range(min_tile_y, max_tile_y - 1, -1):  # Tile Y decreases as latitude increases
+                tile_url = f"{base_url}/{zoom}/{tile_y}/{tile_x}"
+                tiles.append({
+                    "tile_url": tile_url,
+                    "tile_coordinates": {
+                        "x": tile_x,
+                        "y": tile_y,
+                        "z": zoom
+                    },
+                    "tile_size": f"{tile_size}x{tile_size}",
+                    "format": "PNG"
+                })
+
+        return {
+            "success": True,
+            "tiles": tiles,
+            "bbox": bbox,
+            "zoom": zoom
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error generating basemap tiles: {str(e)}"
+        }
+
 
 @mcp.tool()
 def generate_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, 
@@ -1308,7 +1380,7 @@ def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: 
         - To display building details, use zoom levels 20-22.
 
     Returns:
-        Binary image or metadata dictionary containing the rendered map tile.
+        - Image object when successful, error dict when failed
     """
     basemap_style = BasemapSubStyle.from_string(style)
     if not basemap_style:
@@ -1398,6 +1470,23 @@ def render_static_map_from_location(location: str, zoom: int = 15, style: str = 
         basemap_style = BasemapSubStyle.NAVIGATION  # Default to navigation style if invalid style provided
     
     # Render the map
+    if geocode_result.get("raw_response", {}):
+        raw_result = geocode_result["raw_response"]
+        if "extent" in raw_result:
+            # If the geocoding result has an extent, use it to get a bounding box
+            extent = raw_result["extent"]
+            bbox = {
+                "xmin": extent["xmin"],
+                "ymin": extent["ymin"],
+                "xmax": extent["xmax"],
+                "ymax": extent["ymax"]
+            }
+
+            # Override the zoom level if the extent is provided
+            zoom = get_zoom_for_location_type(location_type)
+            return get_static_basemap_tiles(bbox, zoom, basemap_style)
+
+    # If no extent, just return a single tile for the coordinates
     return get_static_basemap_tile(latitude, longitude, zoom, basemap_style=basemap_style)
 
 def get_zoom_level_description(zoom: int) -> str:
@@ -1769,8 +1858,3 @@ def get_places_near_coordinates(latitude: str, longitude: str) -> str:
             return f"Failed to find places near {lat}, {lon}: {places_result['error']}"
     except ValueError:
         return f"Invalid coordinates: {latitude}, {longitude}"
-
-if __name__ == "__main__":
-    # Start the server locally
-    #mcp.run(transport="sse")
-    mcp.run(transport="stdio")
