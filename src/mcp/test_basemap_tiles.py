@@ -86,10 +86,9 @@ def test_static_basemap_tile_structure():
         assert center_coords["latitude"] == lat, "Latitude should match input"
         assert center_coords["longitude"] == lon, "Longitude should match input"
         
-        # Check tile URL format
+        # Check tile URL format  
         tile_url = result["tile_url"]
-        assert "basemap.arcgis.com" in tile_url, "Should use ArcGIS basemap service"
-        assert "World_Basemap_v2" in tile_url, "Should use World Basemap v2"
+        assert "static-map-tiles-api.arcgis.com" in tile_url, "Should use ArcGIS static map tiles service"
         assert f"/{zoom}/" in tile_url, "URL should contain zoom level"
         
         print(f"   ✓ Generated tile URL: {tile_url}")

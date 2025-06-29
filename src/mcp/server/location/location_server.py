@@ -1159,11 +1159,12 @@ def generate_static_map_from_coordinates(latitude: float, longitude: float, zoom
         latitude: Center latitude for the map
         longitude: Center longitude for the map
         zoom: Zoom level (0-22, default: 15)
-        include_image_data: If True, return base64 encoded image data
+        include_image_data: If True, return base64 encoded image data in the dict
         
     Returns:
-        Dictionary containing static map tile information
+        Dictionary containing static map tile information (and image data if requested)
     """
+    # Return metadata dict
     tile_result = get_static_basemap_tile(latitude, longitude, zoom, return_image_data=include_image_data)
     
     if not tile_result["success"]:
@@ -1189,10 +1190,10 @@ def generate_static_map_from_address(address: str, zoom: int = 15,
     Args:
         address: Address or place name to map
         zoom: Zoom level (0-22, default: 15)
-        include_image_data: If True, return base64 encoded image data
+        include_image_data: If True, return base64 encoded image data in the dict
         
     Returns:
-        Dictionary containing static map tile information and geocoding results
+        Dictionary containing map tile information and geocoding results (and image data if requested)
     """
     # First geocode the address
     geocode_result = geocode_address(address)
@@ -1207,7 +1208,7 @@ def generate_static_map_from_address(address: str, zoom: int = 15,
     latitude = coords["latitude"]
     longitude = coords["longitude"]
     
-    # Generate the static map tile
+    # Generate the static map tile metadata
     tile_result = generate_static_map_from_coordinates(latitude, longitude, zoom, include_image_data)
     
     if not tile_result["success"]:
@@ -1223,7 +1224,7 @@ def generate_static_map_from_address(address: str, zoom: int = 15,
     return tile_result
 
 @mcp.tool()
-def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15) -> Image:
+def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, style: str = None) -> Image:
     """
     Renders a static map tile from coordinates using ArcGIS basemap tiles as binary image.
     The result can be directly used in chat UIs that support image rendering.
@@ -1232,17 +1233,66 @@ def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: 
         latitude: Center latitude for the map
         longitude: Center longitude for the map
         zoom: Zoom level (0-22, default: 15)
+        style: Map style (optional, defaults to "navigation")
         
     Returns:
         Image object containing the static map tile as binary data.
     """
-    tile_result = get_static_basemap_tile(latitude, longitude, zoom, return_image_data=True)
+    # Use default style if not provided
+    if style is None:
+        style = "navigation"
+    
+    tile_result = get_static_basemap_tile(latitude, longitude, zoom, return_image_data=True, style_name=style)
 
     if not tile_result["success"]:
-        return tile_result
+        # Create a simple error image instead of returning dict
+        error_message = tile_result.get("error", "Map generation failed")
+        # For now, return an Image with minimal error data
+        # In a real implementation, you might generate an actual error image
+        error_data = f"Error: {error_message}".encode('utf-8')
+        return Image(data=error_data, format="text/plain")
 
     # Return the map tile as raw image data
     return Image(data=tile_result["image_data"], format=tile_result["image_format"])
+
+@mcp.tool()
+def render_static_map_from_location(location: str, zoom: int = None, style: str = None) -> Image:
+    """
+    Renders a static map tile from a location string (address, place name, etc.).
+    Automatically geocodes the location and adapts zoom level and style based on location type.
+    
+    Args:
+        location: Location string (e.g., "Germany", "Bonn, Germany", "1600 Pennsylvania Ave")
+        zoom: Optional zoom level override (if not provided, auto-determined from location type)
+        style: Optional style override (if not provided, auto-determined from location type)
+        
+    Returns:
+        Image object containing the static map tile as binary data.
+    """
+    # First geocode the location
+    geocode_result = geocode_address(location)
+    
+    if not geocode_result["success"]:
+        error_message = f"Failed to geocode location '{location}': {geocode_result.get('error', 'Unknown error')}"
+        error_data = f"Error: {error_message}".encode('utf-8')
+        return Image(data=error_data, format="text/plain")
+    
+    # Extract coordinates
+    coords = geocode_result["coordinates"]
+    latitude = coords["latitude"]
+    longitude = coords["longitude"]
+    
+    # Determine location type and auto-select zoom/style if not provided
+    location_type = determine_location_type(geocode_result.get("attributes", {}))
+    
+    if zoom is None:
+        zoom = get_zoom_for_location_type(location_type)
+    
+    if style is None:
+        style = get_style_for_location_type(location_type)
+    
+    # Render the map
+    return render_static_map_from_coordinates(latitude, longitude, zoom, style)
 
 def get_zoom_level_description(zoom: int) -> str:
     """
@@ -1281,6 +1331,67 @@ def get_zoom_level_description(zoom: int) -> str:
     }
     
     return descriptions.get(zoom, f"Zoom level {zoom}")
+
+def determine_location_type(geocoding_attributes: Dict) -> str:
+    """
+    Determine location type based on geocoding attributes
+    
+    Args:
+        geocoding_attributes: Attributes from geocoding response
+        
+    Returns:
+        Location type: "country", "city", or "address"
+    """
+    addr_type = geocoding_attributes.get("Addr_type", "").lower()
+    
+    # Country-level locations
+    if addr_type in ["country", "admin1", "state", "province"]:
+        return "country"
+    
+    # Address-level locations
+    if addr_type in ["streetaddress", "pointaddress", "buildingname", "street", "address"]:
+        return "address"
+    
+    # Default to city-level for populated places, localities, etc.
+    return "city"
+
+def get_zoom_for_location_type(location_type: str) -> int:
+    """
+    Get appropriate zoom level for location type
+    
+    Args:
+        location_type: "country", "city", "community", or "address"
+        
+    Returns:
+        Zoom level (0-22)
+    """
+    zoom_mapping = {
+        "country": 4,       # Country view (zoom 3-4)
+        "city": 11,         # City view (zoom 10-13)
+        "community": 11,    # Community view (zoom 10-13)
+        "address": 16       # Address view (zoom 15-17)
+    }
+    
+    return zoom_mapping.get(location_type, 15)  # Default to 15
+
+def get_style_for_location_type(location_type: str) -> str:
+    """
+    Get appropriate style for location type
+    
+    Args:
+        location_type: "country", "city", "community", or "address"
+        
+    Returns:
+        Style name for basemap
+    """
+    style_mapping = {
+        "country": "world",      # World/standard style for country view
+        "city": "navigation",    # Navigation style for urban areas
+        "community": "navigation", # Navigation style for communities
+        "address": "navigation"  # Detailed navigation for addresses
+    }
+    
+    return style_mapping.get(location_type, "navigation")  # Default to navigation
 
 @mcp.tool()
 def display_location_with_elevation(address: str, include_html: bool = True, zoom_level: int = 15) -> Dict:
