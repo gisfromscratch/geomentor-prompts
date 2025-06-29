@@ -5,6 +5,58 @@ The Map Visualization service provides interactive map generation, URL creation,
 
 ## Available Tools
 
+### `render_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, style: str = None)`
+Renders a static map tile from coordinates as a binary Image object for direct display in chat UIs.
+
+**Parameters:**
+- `latitude` (float): Center latitude for the map
+- `longitude` (float): Center longitude for the map  
+- `zoom` (int): Zoom level (0-22, default: 15)
+- `style` (str): Map style (optional, defaults to "navigation")
+
+**Returns:**
+Image object containing the static map tile as binary data, ready for chat UI display.
+
+**Example:**
+```python
+# Basic usage
+map_image = render_static_map_from_coordinates(40.7128, -74.0060)
+
+# With custom zoom and style
+map_image = render_static_map_from_coordinates(40.7128, -74.0060, zoom=12, style="world")
+```
+
+### `render_static_map_from_location(location: str, zoom: int = None, style: str = None)` 
+⭐ **NEW** - Renders a static map from a location string with automatic zoom and style selection.
+
+**Parameters:**
+- `location` (str): Location string (address, place name, etc.)
+- `zoom` (int): Optional zoom override (auto-determined from location type if not provided)
+- `style` (str): Optional style override (auto-determined from location type if not provided)
+
+**Returns:**
+Image object containing the static map tile as binary data.
+
+**Auto-Detection Features:**
+- **Country-level locations** (e.g., "Germany") → zoom 4, "world" style
+- **City/community locations** (e.g., "Bonn, Germany") → zoom 11, "navigation" style  
+- **Address-level locations** (e.g., "1600 Pennsylvania Ave") → zoom 16, "navigation" style
+
+**Examples:**
+```python
+# Country view - auto zoom 4, world style
+country_map = render_static_map_from_location("Germany")
+
+# City view - auto zoom 11, navigation style  
+city_map = render_static_map_from_location("Bonn, Germany")
+
+# Address view - auto zoom 16, navigation style
+address_map = render_static_map_from_location("1600 Pennsylvania Ave NW, Washington, DC")
+
+# Override auto-detection
+custom_map = render_static_map_from_location("Paris, France", zoom=8, style="world")
+```
+
 ### `generate_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, include_image_data: bool = False)`
 Generate a static map tile from coordinates using ArcGIS basemap tiles.
 
@@ -245,6 +297,48 @@ The service provides chat-ready markdown formatting:
 - **Mobile-friendly**: Maps scale appropriately on mobile devices
 - **Loading states**: Graceful handling of slow map loading
 - **Fallback content**: Coordinate display when maps fail to load
+
+## Automatic Zoom and Style Detection
+
+### Location Type → Zoom/Style Mapping
+
+The `render_static_map_from_location` function automatically determines the appropriate zoom level and map style based on the geocoded location type:
+
+| Location Type | Zoom Level | Style | Use Case |
+|---------------|------------|-------|----------|
+| **Country** | 4 | world | Country boundaries, continental view |
+| **City/Community** | 11 | navigation | Urban areas, city overview |  
+| **Address** | 16 | navigation | Street-level, building details |
+
+### Location Type Detection
+
+Location types are determined from the geocoding service's `Addr_type` attribute:
+
+**Country-level:**
+- `Country`, `Admin1`, `State`, `Province`
+
+**Address-level:** 
+- `StreetAddress`, `PointAddress`, `BuildingName`, `Street`, `Address`
+
+**City-level (default):**
+- `Locality`, `Populated Place`, `AdminDivision3`
+- Any unrecognized or missing `Addr_type`
+
+### Sample Usage by Location Type
+
+```python
+# Country-level requests → zoom 4, world style
+country_map = render_static_map_from_location("Germany")
+continent_map = render_static_map_from_location("Europe")
+
+# City-level requests → zoom 11, navigation style  
+city_map = render_static_map_from_location("Bonn, Germany")
+town_map = render_static_map_from_location("Kyoto, Japan")
+
+# Address-level requests → zoom 16, navigation style
+address_map = render_static_map_from_location("1600 Pennsylvania Ave NW, Washington, DC")
+building_map = render_static_map_from_location("Beethovenallee 22, 53173 Bonn, Germany")
+```
 
 ## Zoom Level Guidelines
 
