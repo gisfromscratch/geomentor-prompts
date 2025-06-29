@@ -1259,7 +1259,7 @@ def generate_static_map_from_address(address: str, zoom: int = 15,
     return get_static_basemap_tile(latitude, longitude, zoom, basemap_style=basemap_style)
 
 @mcp.tool()
-def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: int, style: str = "navigation") -> Union[Image, Dict]:
+def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: int = 15, style: str = "navigation") -> Union[Image, Dict]:
     """
     Renders a static map tile from coordinates using ArcGIS basemap tiles as binary image.
     The result can be directly used in chat UIs that support image rendering.
@@ -1317,7 +1317,7 @@ def render_static_map_from_coordinates(latitude: float, longitude: float, zoom: 
     return get_static_basemap_tile(latitude, longitude, zoom, basemap_style=basemap_style)
 
 @mcp.tool()
-def render_static_map_from_location(location: str, zoom: int, style: str = "navigation") -> Union[Image, Dict]:
+def render_static_map_from_location(location: str, zoom: int = 15, style: str = "navigation") -> Union[Image, Dict]:
     """
     Renders a static map tile from a location string (address, place name, etc.).
     Automatically geocodes the location and adapts zoom level and style based on location type.
