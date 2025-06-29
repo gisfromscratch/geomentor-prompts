@@ -1,9 +1,12 @@
 from mcp.server.fastmcp import FastMCP, Image
+from PIL import Image as PILImage
+from io import BytesIO
 import requests
 import math
 from typing import Dict, List, Optional, Union
 from basemap_styles import BasemapSubStyle, SUPPORTED_BASEMAP_STYLES
 from location_config import ArcGISApiKeyManager
+
 
 # Create an MCP server
 mcp = FastMCP(name="Location MCP Demo", 
@@ -1083,7 +1086,7 @@ def lat_lon_to_tile_coordinates(latitude: float, longitude: float, zoom: int) ->
 
 
 def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15, 
-                           tile_size: int = 512, basemap_style: BasemapSubStyle = BasemapSubStyle.NAVIGATION) -> Union[Image, Dict]:
+                           basemap_style: BasemapSubStyle = BasemapSubStyle.NAVIGATION) -> Union[Image, Dict]:
     """
     Fetch a static basemap tile from ArcGIS Location Platform
     
@@ -1104,7 +1107,6 @@ def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15,
             - 18-19: "Building level"     - Individual buildings.
             - 20-21: "Building detail"    - Detailed building features.
             - 22:  "Maximum detail"       - Highest available detail.
-        tile_size: Tile size in pixels (default: 512)
         basemap_style: Optional basemap style for the tile (default: "navigation")
 
     Returns:
@@ -1165,14 +1167,13 @@ def get_static_basemap_tile(latitude: float, longitude: float, zoom: int = 15,
             "error": f"Error generating basemap tile: {str(e)}"
         }
 
-def get_static_basemap_tiles(bbox: Dict[str, float], zoom: int, tile_size: int = 512, basemap_style: BasemapSubStyle = BasemapSubStyle.NAVIGATION) -> Dict:
+def get_static_basemap_tiles(bbox: Dict[str, float], zoom: int, basemap_style: BasemapSubStyle = BasemapSubStyle.NAVIGATION) -> Union[Dict, Image]:
     """
     Fetch static basemap tiles for a bounding box (bbox) at a specific zoom level.
 
     Args:
         bbox: Bounding box defined as dictionary of (xmin, ymin, xmax, ymax).
         zoom: Zoom level (0-22).
-        tile_size: Tile size in pixels (default: 512).
         basemap_style: Optional basemap style for the tiles (default: "navigation").
 
     Returns:
@@ -1200,7 +1201,8 @@ def get_static_basemap_tiles(bbox: Dict[str, float], zoom: int, tile_size: int =
             }
 
         # Convert bbox to tile coordinates
-        zoom += 1  # Adjust zoom level for tile calculations
+        if zoom < 20:
+            zoom += 2  # Adjust zoom level for tile calculations
         min_tile_x, min_tile_y = lat_lon_to_tile_coordinates(ymin, xmin, zoom)
         max_tile_x, max_tile_y = lat_lon_to_tile_coordinates(ymax, xmax, zoom)
 
@@ -1209,27 +1211,57 @@ def get_static_basemap_tiles(bbox: Dict[str, float], zoom: int, tile_size: int =
         style_name = basemap_style.value.lower()
         base_url = f"https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/{style_family}/{style_name}/static/tile"
 
-        tiles = []
-        for tile_x in range(min_tile_x, max_tile_x + 1):
-            for tile_y in range(min_tile_y, max_tile_y - 1, -1):  # Tile Y decreases as latitude increases
-                tile_url = f"{base_url}/{zoom}/{tile_y}/{tile_x}"
-                tiles.append({
-                    "tile_url": tile_url,
-                    "tile_coordinates": {
-                        "x": tile_x,
-                        "y": tile_y,
-                        "z": zoom
-                    },
-                    "tile_size": f"{tile_size}x{tile_size}",
-                    "format": "PNG"
-                })
+        # Add API key if available
+        params = {}
+        ArcGISApiKeyManager.add_key_to_params(params)
 
-        return {
-            "success": True,
-            "tiles": tiles,
-            "bbox": bbox,
-            "zoom": zoom
-        }
+        tile_size = 512  # Tile size in pixels (512x512)
+        image_size = (tile_size * (max_tile_x - min_tile_x + 1), tile_size * (min_tile_y - max_tile_y + 1))
+        rendered_image = PILImage.new("RGBA", image_size)
+        
+        # Generate tile coordinates within the bounding box
+        tile_x_range = range(min_tile_x, max_tile_x + 1)
+        # Tile Y decreases as latitude increases
+        tile_y_range = range(min_tile_y, max_tile_y - 1, -1)
+
+        if len(tile_x_range) * len(tile_y_range) > 100:
+            return {
+                "success": False,
+                "error": "Too many tiles requested. Please reduce the bounding box size or zoom level."
+            }
+
+        for tile_x in tile_x_range:
+            for tile_y in tile_y_range:
+                tile_url = f"{base_url}/{zoom}/{tile_y}/{tile_x}"
+
+                # Fetch the actual image data
+                try:
+                    response = requests.get(tile_url, params=params, timeout=15)
+                    response.raise_for_status()
+
+                    # Paste the tile image into the rendered image
+                    tile_image = PILImage.open(BytesIO(response.content))
+                    upper_left_image_corner = ((tile_x - min_tile_x) * tile_size, (tile_y - max_tile_y) * tile_size)
+                    rendered_image.paste(tile_image, upper_left_image_corner)
+
+                except requests.RequestException as e:
+                    return {
+                        "success": False,
+                        "error": f"Failed to fetch tile image: {str(e)}",
+                        "tile_url": tile_url
+                    }
+        """
+        try:
+            rendered_image.save("/mnt/data/tmp/basemap_tiles.png", format="PNG")
+        except Exception as e:
+            import os
+            os.write("/mnt/data/tmp/basemap_tiles_error.txt", str(e))
+        """
+
+        # Convert the rendered image to a format suitable for return
+        image_byte_array = BytesIO()
+        rendered_image.save(image_byte_array, format="PNG")
+        return Image(data=image_byte_array.getvalue(), format="image/png")
 
     except Exception as e:
         return {
@@ -1858,3 +1890,9 @@ def get_places_near_coordinates(latitude: str, longitude: str) -> str:
             return f"Failed to find places near {lat}, {lon}: {places_result['error']}"
     except ValueError:
         return f"Invalid coordinates: {latitude}, {longitude}"
+
+
+if __name__ == "__main__":
+    # Start the server locally
+    #mcp.run(transport="sse")
+    mcp.run(transport="stdio")
