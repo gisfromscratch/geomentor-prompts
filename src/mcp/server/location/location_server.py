@@ -6,13 +6,14 @@ import math
 from typing import Dict, List, Optional, Union
 from basemap_styles import BasemapSubStyle, SUPPORTED_BASEMAP_STYLES
 from location_config import ArcGISApiKeyManager
+from location_server_class import LocationServer
+from server_config import LocationServerConfig
 
 
-# Create an MCP server
-mcp = FastMCP(name="Location MCP Demo", 
-              description="A MCP demo server for location-based services",
-              version="0.1.0",
-              port=8000)
+# Create the reusable LocationServer instance
+location_server = LocationServer()
+# Get the MCP server instance for tool registration
+mcp = location_server.get_server()
 
 def geocode_address(address: str) -> Dict:
     """
@@ -1893,6 +1894,5 @@ def get_places_near_coordinates(latitude: str, longitude: str) -> str:
 
 
 if __name__ == "__main__":
-    # Start the server locally
-    #mcp.run(transport="sse")
-    mcp.run(transport="stdio")
+    # Start the server using the LocationServer class
+    location_server.start()
