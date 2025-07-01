@@ -5,7 +5,7 @@
     "python.testing.unittestArgs": [
         "-v",
         "-s",
-        "./src/mcp",
+        "./src/mcp/server/location/tests",
         "-p",
         "test_*.py"
     ],
