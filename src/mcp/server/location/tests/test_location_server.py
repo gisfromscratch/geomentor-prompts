@@ -104,7 +104,7 @@ class TestArcGISApiKeyManager(unittest.TestCase):
         result = ArcGISApiKeyManager.get_api_key(test_key)
         self.assertEqual(result, test_key)
         
-    @patch.dict(os.environ, {"ARCGIS_API_KEY": "test_env_key"})
+    @patch.dict(os.environ, {"arcgis_api_key": "test_env_key"})
     def test_environment_api_key(self):
         """Test retrieving API key from environment"""
         result = ArcGISApiKeyManager.get_api_key()
