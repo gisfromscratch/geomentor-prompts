@@ -1203,7 +1203,7 @@ def get_static_basemap_tiles(bbox: Dict[str, float], zoom: int, basemap_style: B
 
         # Convert bbox to tile coordinates
         if zoom < 20:
-            zoom += 2  # Adjust zoom level for tile calculations
+            zoom += 1  # Adjust zoom level for tile calculations
         min_tile_x, min_tile_y = lat_lon_to_tile_coordinates(ymin, xmin, zoom)
         max_tile_x, max_tile_y = lat_lon_to_tile_coordinates(ymax, xmax, zoom)
 
