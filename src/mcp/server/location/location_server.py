@@ -734,7 +734,7 @@ def list_categories(level: Optional[int] = None, parent_category_id: Optional[st
             # Format category for easy use
             filtered_categories.append({
                 "categoryId": category.get("categoryId", ""),
-                "label": category.get("label", ""),
+                "fullLabel": category.get("fullLabel", ""),
                 "level": category.get("level", 1),
                 "parentCategoryId": category.get("parentCategoryId"),
                 "description": category.get("description", "")
