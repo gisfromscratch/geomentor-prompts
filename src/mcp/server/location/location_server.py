@@ -151,6 +151,7 @@ def get_cached_categories() -> Dict:
     
     return _categories_cache
 
+def search_nearby_places(latitude: float, longitude: float, category: Optional[str] = None, radius: int = 1000, max_results: int = 10) -> Dict:
     """
     Search for nearby places using ArcGIS Location Platform Places Services
     
@@ -749,7 +750,7 @@ def list_categories(level: Optional[int] = None, parent_category_id: Optional[st
         },
         "usage_info": {
             "description": "Use the categoryId values with find_places or find_places_by_coordinates tools",
-            "example": "find_places('San Francisco, CA', category='13065')"
+            "example": "Finding 'Arts and Entertainment' places in San Francisco, CA: find_places('San Francisco, CA', category='4d4b7104d754a06370d81259')"
         }
     }
 
