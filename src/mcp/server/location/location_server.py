@@ -761,7 +761,7 @@ def find_places(location: str, category: Optional[str] = None, radius: int = 100
     
     Args:
         location: Address or location description to search around
-        category: Optional category ID for filtering places. Use list_categories tool to discover available categoryId values (e.g., '13065' for restaurants, '17119' for gas stations)
+        category: Optional category ID for filtering places. Use list_categories tool to discover available categoryId values (e.g., actual category IDs from ArcGIS Places API)
         radius: Search radius in meters (default: 1000m, max: 50000m)
         max_results: Maximum number of results to return (default: 10, max: 50)
         
@@ -948,7 +948,7 @@ def find_places_by_coordinates(latitude: float, longitude: float, category: Opti
     Args:
         latitude: Latitude coordinate to search around
         longitude: Longitude coordinate to search around
-        category: Optional category ID for filtering places. Use list_categories tool to discover available categoryId values (e.g., '13065' for restaurants, '17119' for gas stations)
+        category: Optional category ID for filtering places. Use list_categories tool to discover available categoryId values (e.g., actual category IDs from ArcGIS Places API)
         radius: Search radius in meters (default: 1000m, max: 50000m)
         max_results: Maximum number of results to return (default: 10, max: 50)
         

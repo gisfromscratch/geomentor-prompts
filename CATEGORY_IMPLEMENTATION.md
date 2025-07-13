@@ -34,8 +34,8 @@ print(f"Top-level categories: {result['total_count']}")
 ### Filter Categories by Parent
 
 ```python
-# Get subcategories of restaurants (assuming Restaurant categoryId is 13065)
-result = list_categories(parent_category_id="13065")
+# Get subcategories of restaurants (using actual restaurant categoryId from ArcGIS Places API)
+result = list_categories(parent_category_id="<actual_restaurant_category_id>")
 print(f"Restaurant subcategories: {result['total_count']}")
 ```
 
@@ -65,7 +65,7 @@ if restaurant_cat:
     "success": true,
     "categories": [
         {
-            "categoryId": "13065",
+            "categoryId": "<actual_category_id>",
             "label": "Restaurant",
             "level": 1,
             "parentCategoryId": null,
@@ -79,7 +79,7 @@ if restaurant_cat:
     },
     "usage_info": {
         "description": "Use the categoryId values with find_places or find_places_by_coordinates tools",
-        "example": "find_places('San Francisco, CA', category='13065')"
+        "example": "find_places('San Francisco, CA', category='<actual_category_id>')"
     }
 }
 ```
@@ -89,7 +89,7 @@ if restaurant_cat:
 ### find_places
 - **category parameter**: Now accepts categoryId values instead of text strings
 - **Documentation**: References `list_categories` tool for discovering available values
-- **Examples**: Shows specific categoryId usage (e.g., '13065' for restaurants)
+- **Examples**: Shows specific categoryId usage (e.g., actual category IDs from ArcGIS Places API)
 
 ### find_places_by_coordinates  
 - **Now registered**: Added missing `@mcp.tool()` decorator

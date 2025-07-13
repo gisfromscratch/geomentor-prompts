@@ -15,7 +15,7 @@ This implementation successfully addresses the feature request to **add category
 ### 2. **Enhanced Tool Metadata**
 - **`find_places`**: Updated to reference `list_categories` tool and use categoryId parameter
 - **`find_places_by_coordinates`**: Same enhancements + added missing `@mcp.tool()` decorator
-- Clear documentation with specific categoryId examples (e.g., '13065' for restaurants)
+- Clear documentation with specific categoryId examples (e.g., actual category IDs from ArcGIS Places API)
 
 ### 3. **Performance Optimizations**
 - Global category caching during server startup
@@ -40,7 +40,7 @@ def find_places(location: str, category: Optional[str] = None, ...):
     """
     category: Optional category ID for filtering places. 
              Use list_categories tool to discover available categoryId values
-             (e.g., '13065' for restaurants, '17119' for gas stations)
+             (e.g., actual category IDs from ArcGIS Places API)
     """
 
 # Category caching during startup
