@@ -30,7 +30,7 @@ def test_fetch_categories_structure():
         if result["categories"]:
             category = result["categories"][0]
             assert "categoryId" in category or "categoryId" in str(category), "Category should have categoryId"
-            assert "label" in category or "label" in str(category), "Category should have label"
+            assert "fullLabel" in category or "fullLabel" in str(category), "Category should have label"
     else:
         assert "error" in result, "Should have error message when unsuccessful"
     
