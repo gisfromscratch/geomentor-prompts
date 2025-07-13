@@ -15,6 +15,9 @@ location_server = LocationServer()
 # Get the MCP server instance for tool registration
 mcp = location_server.get_server()
 
+# Cache for place categories - populated during server startup
+_categories_cache = None
+
 def geocode_address(address: str) -> Dict:
     """
     Geocode an address using ArcGIS Location Platform Geocoding Services
@@ -83,7 +86,71 @@ def geocode_address(address: str) -> Dict:
             "coordinates": None
         }
 
-def search_nearby_places(latitude: float, longitude: float, category: Optional[str] = None, radius: int = 1000, max_results: int = 10) -> Dict:
+def fetch_place_categories() -> Dict:
+    """
+    Fetch available place categories from ArcGIS Places API
+    
+    Returns:
+        Dictionary containing categories with success status and category data
+    """
+    # ArcGIS Places API categories endpoint
+    base_url = "https://places-api.arcgis.com/arcgis/rest/services/places-service/v1/categories"
+    
+    params = {
+        "f": "json"
+    }
+    
+    # Get the API key from environment variable or configuration
+    api_key = ArcGISApiKeyManager.get_api_key()
+    ArcGISApiKeyManager.add_key_to_params(params, api_key)
+    
+    try:
+        response = requests.get(base_url, params=params, timeout=15)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        if "categories" in data:
+            return {
+                "success": True,
+                "categories": data["categories"],
+                "total_count": len(data["categories"]),
+                "raw_response": data
+            }
+        else:
+            return {
+                "success": False,
+                "error": "No categories found in API response",
+                "categories": []
+            }
+            
+    except requests.RequestException as e:
+        return {
+            "success": False,
+            "error": f"Failed to fetch categories: {str(e)}",
+            "categories": []
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error fetching categories: {str(e)}",
+            "categories": []
+        }
+
+def get_cached_categories() -> Dict:
+    """
+    Get cached categories, fetching them if not already cached
+    
+    Returns:
+        Dictionary containing categories with success status and category data
+    """
+    global _categories_cache
+    
+    if _categories_cache is None:
+        _categories_cache = fetch_place_categories()
+    
+    return _categories_cache
+
     """
     Search for nearby places using ArcGIS Location Platform Places Services
     
@@ -621,13 +688,79 @@ def geocode(address: str) -> Dict:
     return geocode_address(address)
 
 @mcp.tool()
+def list_categories(level: Optional[int] = None, parent_category_id: Optional[str] = None) -> Dict:
+    """
+    List available place categories for use with find_places and find_places_by_coordinates
+    
+    Args:
+        level: Optional filter by category level (1-5, where 1 is top level)
+        parent_category_id: Optional filter by parent category ID for hierarchy traversal
+        
+    Returns:
+        Dictionary containing available place categories that can be used as categoryId values
+    """
+    # Get cached categories
+    categories_result = get_cached_categories()
+    
+    if not categories_result["success"]:
+        return {
+            "success": False,
+            "error": f"Failed to fetch categories: {categories_result['error']}",
+            "categories": [],
+            "total_count": 0
+        }
+    
+    categories = categories_result["categories"]
+    filtered_categories = []
+    
+    # Apply filters
+    for category in categories:
+        include_category = True
+        
+        # Filter by level if specified
+        if level is not None:
+            category_level = category.get("level", 1)
+            if category_level != level:
+                include_category = False
+        
+        # Filter by parent category ID if specified
+        if parent_category_id is not None:
+            category_parent_id = category.get("parentCategoryId")
+            if category_parent_id != parent_category_id:
+                include_category = False
+        
+        if include_category:
+            # Format category for easy use
+            filtered_categories.append({
+                "categoryId": category.get("categoryId", ""),
+                "label": category.get("label", ""),
+                "level": category.get("level", 1),
+                "parentCategoryId": category.get("parentCategoryId"),
+                "description": category.get("description", "")
+            })
+    
+    return {
+        "success": True,
+        "categories": filtered_categories,
+        "total_count": len(filtered_categories),
+        "filters_applied": {
+            "level": level,
+            "parent_category_id": parent_category_id
+        },
+        "usage_info": {
+            "description": "Use the categoryId values with find_places or find_places_by_coordinates tools",
+            "example": "find_places('San Francisco, CA', category='13065')"
+        }
+    }
+
+@mcp.tool()
 def find_places(location: str, category: Optional[str] = None, radius: int = 1000, max_results: int = 10) -> Dict:
     """
     Find nearby places around a given location with optional category filtering
     
     Args:
         location: Address or location description to search around
-        category: Optional category filter (e.g., 'restaurant', 'gas_station', 'park', 'hotel', 'hospital')
+        category: Optional category ID for filtering places. Use list_categories tool to discover available categoryId values (e.g., '13065' for restaurants, '17119' for gas stations)
         radius: Search radius in meters (default: 1000m, max: 50000m)
         max_results: Maximum number of results to return (default: 10, max: 50)
         
@@ -806,6 +939,7 @@ def get_directions(origin: str, destination: str, travel_mode: str = "driving") 
     
     return result
 
+@mcp.tool()
 def find_places_by_coordinates(latitude: float, longitude: float, category: Optional[str] = None, radius: int = 1000, max_results: int = 10) -> Dict:
     """
     Find nearby places around specific coordinates with optional category filtering
@@ -813,7 +947,7 @@ def find_places_by_coordinates(latitude: float, longitude: float, category: Opti
     Args:
         latitude: Latitude coordinate to search around
         longitude: Longitude coordinate to search around
-        category: Optional category filter (e.g., 'restaurant', 'gas_station', 'park', 'hotel', 'hospital')
+        category: Optional category ID for filtering places. Use list_categories tool to discover available categoryId values (e.g., '13065' for restaurants, '17119' for gas stations)
         radius: Search radius in meters (default: 1000m, max: 50000m)
         max_results: Maximum number of results to return (default: 10, max: 50)
         
