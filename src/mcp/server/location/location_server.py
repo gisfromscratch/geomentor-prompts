@@ -674,7 +674,6 @@ def format_directions_for_chat(routing_result: Dict) -> str:
     
     return response
 
-
 @mcp.tool()
 def geocode(address: str) -> Dict:
     """
@@ -689,12 +688,11 @@ def geocode(address: str) -> Dict:
     return geocode_address(address)
 
 @mcp.tool()
-def list_categories(level: Optional[int] = None, parent_category_id: Optional[str] = None) -> Dict:
+def list_categories(parent_category_id: Optional[str] = None) -> Dict:
     """
     List available place categories for use with find_places and find_places_by_coordinates
     
     Args:
-        level: Optional filter by category level (1-5, where 1 is top level)
         parent_category_id: Optional filter by parent category ID for hierarchy traversal
         
     Returns:
@@ -718,25 +716,18 @@ def list_categories(level: Optional[int] = None, parent_category_id: Optional[st
     for category in categories:
         include_category = True
         
-        # Filter by level if specified
-        if level is not None:
-            category_level = category.get("level", 1)
-            if category_level != level:
-                include_category = False
-        
         # Filter by parent category ID if specified
         if parent_category_id is not None:
-            category_parent_id = category.get("parentCategoryId")
-            if category_parent_id != parent_category_id:
+            category_parent_ids = category.get("parents", [])
+            if parent_category_id not in category_parent_ids:
                 include_category = False
         
         if include_category:
             # Format category for easy use
             filtered_categories.append({
                 "categoryId": category.get("categoryId", ""),
-                "fullLabel": category.get("fullLabel", ""),
-                "level": category.get("level", 1),
-                "parentCategoryId": category.get("parentCategoryId"),
+                "fullLabel": category.get("fullLabel", [""]),
+                "parents": category.get("parents", []),
                 "description": category.get("description", "")
             })
     
@@ -745,7 +736,6 @@ def list_categories(level: Optional[int] = None, parent_category_id: Optional[st
         "categories": filtered_categories,
         "total_count": len(filtered_categories),
         "filters_applied": {
-            "level": level,
             "parent_category_id": parent_category_id
         },
         "usage_info": {
