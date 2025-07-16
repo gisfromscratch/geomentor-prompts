@@ -747,7 +747,8 @@ def list_categories(parent_category_id: Optional[str] = None) -> Dict:
 @mcp.tool()
 def find_places(location: str, category: Optional[str] = None, radius: int = 1000, max_results: int = 10) -> Dict:
     """
-    Find nearby places around a given location with optional category filtering
+    Find nearby places around a given location with optional category filtering.
+    You should use list_categories tool to discover available categoryId values before using this tool.
     
     Args:
         location: Address or location description to search around
@@ -933,7 +934,8 @@ def get_directions(origin: str, destination: str, travel_mode: str = "driving") 
 @mcp.tool()
 def find_places_by_coordinates(latitude: float, longitude: float, category: Optional[str] = None, radius: int = 1000, max_results: int = 10) -> Dict:
     """
-    Find nearby places around specific coordinates with optional category filtering
+    Find nearby places around specific coordinates with optional category filtering.
+    You should use list_categories tool to discover available categoryId values before using this tool.
     
     Args:
         latitude: Latitude coordinate to search around
