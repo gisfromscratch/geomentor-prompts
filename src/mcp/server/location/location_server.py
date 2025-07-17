@@ -759,12 +759,11 @@ def find_places(location: str, category: Optional[str] = None, radius: int = 100
         location: Address or location description to search around
         category: Optional category ID for filtering places. Can be:
                  - ArcGIS category ID (use list_place_categories to discover)
-                 - Simple category name like "restaurant", "gas_station", "hotel"
         radius: Search radius in meters (default: 1000m, max: 50000m)
         max_results: Maximum number of results to return (default: 10, max: 50)
         
     Returns:
-        Dictionary containing nearby places with details and map visualization options
+        Dictionary containing nearby places with details and coordinates
     """
     # Validate inputs
     radius = min(max(radius, 10), 50000)  # Clamp between 10m and 50km
@@ -1212,22 +1211,22 @@ def find_restaurants(location: str, radius: int = 1000, max_results: int = 10) -
         max_results: Maximum number of results to return (default: 10, max: 50)
         
     Returns:
-        Dictionary containing nearby restaurants with details and map visualization
+        Dictionary containing nearby restaurants with details
     """
     return find_places(location, category="4d4b7105d754a06374d81259", radius=radius, max_results=max_results)
 
 @mcp.tool()
-def find_gas_stations(location: str, radius: int = 2000, max_results: int = 10) -> Dict:
+def find_fuel_stations(location: str, radius: int = 2000, max_results: int = 10) -> Dict:
     """
-    Find gas stations near a location - convenience method for common searches.
-    
+    Find fuel stations near a location - convenience method for common searches.
+
     Args:
         location: Address or location description to search around
         radius: Search radius in meters (default: 2000m, max: 50000m)
         max_results: Maximum number of results to return (default: 10, max: 50)
         
     Returns:
-        Dictionary containing nearby gas stations with details and map visualization
+        Dictionary containing nearby fuel stations with details
     """
     return find_places(location, category="4bf58dd8d48988d113951735", radius=radius, max_results=max_results)
 
@@ -1242,7 +1241,7 @@ def find_hotels(location: str, radius: int = 5000, max_results: int = 10) -> Dic
         max_results: Maximum number of results to return (default: 10, max: 50)
         
     Returns:
-        Dictionary containing nearby hotels with details and map visualization
+        Dictionary containing nearby hotels with details
     """
     return find_places(location, category="4bf58dd8d48988d1fa931735", radius=radius, max_results=max_results)
 
@@ -1257,7 +1256,7 @@ def find_hospitals(location: str, radius: int = 10000, max_results: int = 10) ->
         max_results: Maximum number of results to return (default: 10, max: 50)
         
     Returns:
-        Dictionary containing nearby hospitals with details and map visualization
+        Dictionary containing nearby hospitals with details
     """
     return find_places(location, category="4bf58dd8d48988d196941735", radius=radius, max_results=max_results)
 
@@ -1272,7 +1271,7 @@ def find_pharmacies(location: str, radius: int = 5000, max_results: int = 10) ->
         max_results: Maximum number of results to return (default: 10, max: 50)
         
     Returns:
-        Dictionary containing nearby pharmacies with details and map visualization
+        Dictionary containing nearby pharmacies with details
     """
     return find_places(location, category="5745c2e4498e11e7bccabdbd", radius=radius, max_results=max_results)
 
@@ -1287,10 +1286,39 @@ def find_banks(location: str, radius: int = 5000, max_results: int = 10) -> Dict
         max_results: Maximum number of results to return (default: 10, max: 50)
         
     Returns:
-        Dictionary containing nearby banks with details and map visualization
+        Dictionary containing nearby banks with details
     """
     return find_places(location, category="4bf58dd8d48988d10a951735", radius=radius, max_results=max_results)
 
+@mcp.tool()
+def find_bars(location: str, radius: int = 5000, max_results: int = 10) -> Dict:
+    """
+    Find bars near a location - convenience method for common searches.
+
+    Args:
+        location: Address or location description to search around
+        radius: Search radius in meters (default: 5000m, max: 50000m)
+        max_results: Maximum number of results to return (default: 10, max: 50)
+        
+    Returns:
+        Dictionary containing nearby bars with details
+    """
+    return find_places(location, category="4bf58dd8d48988d116941735", radius=radius, max_results=max_results)
+
+@mcp.tool()
+def find_movie_theaters(location: str, radius: int = 5000, max_results: int = 10) -> Dict:
+    """
+    Find movie theaters near a location - convenience method for common searches.
+
+    Args:
+        location: Address or location description to search around
+        radius: Search radius in meters (default: 5000m, max: 50000m)
+        max_results: Maximum number of results to return (default: 10, max: 50)
+        
+    Returns:
+        Dictionary containing nearby movie theaters with details
+    """
+    return find_places(location, category="4bf58dd8d48988d17f941735", radius=radius, max_results=max_results)
 
 # ===== STATIC BASEMAP TILE FUNCTIONALITY =====
 
