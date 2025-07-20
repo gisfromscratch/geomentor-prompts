@@ -10,6 +10,9 @@
 *.userosscache
 *.sln.docstates
 
+# Mac os ds store files
+.DS_Store
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
@@ -398,3 +401,9 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Temporary test files for development
+src/mcp/test_categories_minimal.py
+src/mcp/test_import.py  
+src/mcp/test_validation.py
+src/mcp/test_final.py
