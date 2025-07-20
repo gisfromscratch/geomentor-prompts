@@ -95,6 +95,18 @@ class LocationServer:
         capabilities = LocationServerConfig.get_supported_capabilities()
         self.logger.info(f"Server supports capabilities: {', '.join(capabilities)}")
         
+        # Initialize place categories cache during startup
+        self.logger.info("Initializing place categories cache...")
+        try:
+            from location_server import get_cached_categories
+            categories_result = get_cached_categories()
+            if categories_result["success"]:
+                self.logger.info(f"Loaded {categories_result['total_count']} place categories")
+            else:
+                self.logger.warning(f"Failed to load place categories: {categories_result['error']}")
+        except Exception as e:
+            self.logger.warning(f"Error initializing place categories cache: {e}")
+        
     def validate_configuration(self) -> bool:
         """
         Validate server configuration and dependencies

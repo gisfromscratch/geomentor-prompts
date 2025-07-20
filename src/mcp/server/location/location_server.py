@@ -15,6 +15,9 @@ location_server = LocationServer()
 # Get the MCP server instance for tool registration
 mcp = location_server.get_server()
 
+# Cache for place categories - populated during server startup
+_categories_cache = None
+
 def geocode_address(address: str) -> Dict:
     """
     Geocode an address using ArcGIS Location Platform Geocoding Services
@@ -82,6 +85,71 @@ def geocode_address(address: str) -> Dict:
             "error": f"Geocoding error: {str(e)}",
             "coordinates": None
         }
+
+def fetch_place_categories() -> Dict:
+    """
+    Fetch available place categories from ArcGIS Places API
+    
+    Returns:
+        Dictionary containing categories with success status and category data
+    """
+    # ArcGIS Places API categories endpoint
+    base_url = "https://places-api.arcgis.com/arcgis/rest/services/places-service/v1/categories"
+    
+    params = {
+        "f": "json"
+    }
+    
+    # Get the API key from environment variable or configuration
+    api_key = ArcGISApiKeyManager.get_api_key()
+    ArcGISApiKeyManager.add_key_to_params(params, api_key)
+    
+    try:
+        response = requests.get(base_url, params=params, timeout=15)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        if "categories" in data:
+            return {
+                "success": True,
+                "categories": data["categories"],
+                "total_count": len(data["categories"]),
+                "raw_response": data
+            }
+        else:
+            return {
+                "success": False,
+                "error": "No categories found in API response",
+                "categories": []
+            }
+            
+    except requests.RequestException as e:
+        return {
+            "success": False,
+            "error": f"Failed to fetch categories: {str(e)}",
+            "categories": []
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error fetching categories: {str(e)}",
+            "categories": []
+        }
+
+def get_cached_categories() -> Dict:
+    """
+    Get cached categories, fetching them if not already cached
+    
+    Returns:
+        Dictionary containing categories with success status and category data
+    """
+    global _categories_cache
+    
+    if _categories_cache is None:
+        _categories_cache = fetch_place_categories()
+    
+    return _categories_cache
 
 def search_nearby_places(latitude: float, longitude: float, category: Optional[str] = None, radius: int = 1000, max_results: int = 10) -> Dict:
     """
@@ -283,8 +351,8 @@ def reverse_geocode_coordinates(latitude: float, longitude: float) -> Dict:
 
 def get_elevation(latitude: float, longitude: float) -> Dict:
     """
-    Get elevation data for coordinates using ArcGIS Location Platform Elevation Services
-    
+    Get elevation data above mean sea level for coordinates using ArcGIS Location Platform Elevation Services
+
     Args:
         latitude: The latitude coordinate
         longitude: The longitude coordinate
@@ -293,14 +361,13 @@ def get_elevation(latitude: float, longitude: float) -> Dict:
         Dictionary containing elevation result with metadata
     """
     # ArcGIS Location Platform Elevation Service endpoint
-    base_url = "https://elevation-api.arcgis.com/arcgis/rest/services/WorldElevation/Terrain/ImageServer/identify"
+    base_url = "https://elevation-api.arcgis.com/arcgis/rest/services/elevation-service/v1/elevation/at-point"
     
     params = {
         "f": "json",
-        "geometry": f"{longitude},{latitude}",
-        "geometryType": "esriGeometryPoint",
-        "returnGeometry": "false",
-        "returnCatalogItems": "false"
+        "lon": longitude,
+        "lat": latitude,
+        "relativeTo": "meanSeaLevel",  # Use mean sea level for elevation
     }
     
     # Get the API key from environment variable or configuration
@@ -313,9 +380,9 @@ def get_elevation(latitude: float, longitude: float) -> Dict:
         
         data = response.json()
         
-        if data.get("value") is not None:
+        if data.get("result") is not None:
             # Extract elevation data from response
-            elevation_meters = data["value"]
+            elevation_meters = data["result"]["point"]["z"]
             elevation_feet = elevation_meters * 3.28084  # Convert meters to feet
             
             return {
@@ -606,7 +673,6 @@ def format_directions_for_chat(routing_result: Dict) -> str:
     
     return response
 
-
 @mcp.tool()
 def geocode(address: str) -> Dict:
     """
@@ -621,18 +687,82 @@ def geocode(address: str) -> Dict:
     return geocode_address(address)
 
 @mcp.tool()
+def list_place_categories(parent_category_id: Optional[str] = None) -> Dict:
+    """
+    List available place categories for filtering searches. Use this to discover category IDs for find_places tools.
+    
+    For common searches, you can also use convenience methods like find_restaurants, find_gas_stations, etc.
+    
+    Args:
+        parent_category_id: Optional filter by parent category ID for hierarchy traversal
+        
+    Returns:
+        Dictionary containing available place categories that can be used as categoryId values
+    """
+    # Get cached categories
+    categories_result = get_cached_categories()
+    
+    if not categories_result["success"]:
+        return {
+            "success": False,
+            "error": f"Failed to fetch categories: {categories_result['error']}",
+            "categories": [],
+            "total_count": 0
+        }
+    
+    categories = categories_result["categories"]
+    filtered_categories = []
+    
+    # Apply filters
+    for category in categories:
+        include_category = True
+        
+        # Filter by parent category ID if specified
+        if parent_category_id is not None:
+            category_parent_ids = category.get("parents", [])
+            if parent_category_id not in category_parent_ids:
+                include_category = False
+        
+        if include_category:
+            # Format category for easy use
+            filtered_categories.append({
+                "categoryId": category.get("categoryId", ""),
+                "fullLabel": category.get("fullLabel", [""]),
+                "parents": category.get("parents", []),
+                "description": category.get("description", "")
+            })
+    
+    return {
+        "success": True,
+        "categories": filtered_categories,
+        "total_count": len(filtered_categories),
+        "filters_applied": {
+            "parent_category_id": parent_category_id
+        },
+        "usage_info": {
+            "description": "Use the categoryId values with find_places or find_places_by_coordinates tools",
+            "example": "find_places('San Francisco, CA', category='4d4b7104d754a06370d81259')",
+            "tip": "For common searches, try convenience methods like find_restaurants, find_gas_stations, etc."
+        }
+    }
+
+@mcp.tool()
 def find_places(location: str, category: Optional[str] = None, radius: int = 1000, max_results: int = 10) -> Dict:
     """
-    Find nearby places around a given location with optional category filtering
+    Find nearby places around a given location with optional category filtering.
+    
+    For common searches, consider using convenience methods like find_restaurants, find_gas_stations, etc.
+    For advanced category filtering, use list_place_categories to discover available categoryId values.
     
     Args:
         location: Address or location description to search around
-        category: Optional category filter (e.g., 'restaurant', 'gas_station', 'park', 'hotel', 'hospital')
+        category: Optional category ID for filtering places. Can be:
+                 - ArcGIS category ID (use list_place_categories to discover)
         radius: Search radius in meters (default: 1000m, max: 50000m)
         max_results: Maximum number of results to return (default: 10, max: 50)
         
     Returns:
-        Dictionary containing nearby places with details and map visualization options
+        Dictionary containing nearby places with details and coordinates
     """
     # Validate inputs
     radius = min(max(radius, 10), 50000)  # Clamp between 10m and 50km
@@ -806,14 +936,20 @@ def get_directions(origin: str, destination: str, travel_mode: str = "driving") 
     
     return result
 
+@mcp.tool()
 def find_places_by_coordinates(latitude: float, longitude: float, category: Optional[str] = None, radius: int = 1000, max_results: int = 10) -> Dict:
     """
-    Find nearby places around specific coordinates with optional category filtering
+    Find nearby places around specific coordinates with optional category filtering.
+    
+    For common searches, consider using convenience methods like find_restaurants, find_gas_stations, etc.
+    For advanced category filtering, use list_place_categories to discover available categoryId values.
     
     Args:
         latitude: Latitude coordinate to search around
         longitude: Longitude coordinate to search around
-        category: Optional category filter (e.g., 'restaurant', 'gas_station', 'park', 'hotel', 'hospital')
+        category: Optional category ID for filtering places. Can be:
+                 - ArcGIS category ID (use list_place_categories to discover)
+                 - Simple category name like "restaurant", "gas_station", "hotel"
         radius: Search radius in meters (default: 1000m, max: 50000m)
         max_results: Maximum number of results to return (default: 10, max: 50)
         
@@ -1060,6 +1196,128 @@ def display_location_on_map(address: str, include_html: bool = True, zoom_level:
 
     return display_package
 
+
+# ===== CONVENIENCE METHODS FOR COMMON PLACE SEARCHES =====
+
+@mcp.tool()
+def find_restaurants(location: str, radius: int = 1000, max_results: int = 10) -> Dict:
+    """
+    Find restaurants near a location - convenience method for common searches.
+    
+    Args:
+        location: Address or location description to search around
+        radius: Search radius in meters (default: 1000m, max: 50000m)
+        max_results: Maximum number of results to return (default: 10, max: 50)
+        
+    Returns:
+        Dictionary containing nearby restaurants with details
+    """
+    return find_places(location, category="4d4b7105d754a06374d81259", radius=radius, max_results=max_results)
+
+@mcp.tool()
+def find_fuel_stations(location: str, radius: int = 2000, max_results: int = 10) -> Dict:
+    """
+    Find fuel stations near a location - convenience method for common searches.
+
+    Args:
+        location: Address or location description to search around
+        radius: Search radius in meters (default: 2000m, max: 50000m)
+        max_results: Maximum number of results to return (default: 10, max: 50)
+        
+    Returns:
+        Dictionary containing nearby fuel stations with details
+    """
+    return find_places(location, category="4bf58dd8d48988d113951735", radius=radius, max_results=max_results)
+
+@mcp.tool()
+def find_hotels(location: str, radius: int = 5000, max_results: int = 10) -> Dict:
+    """
+    Find hotels near a location - convenience method for common searches.
+    
+    Args:
+        location: Address or location description to search around
+        radius: Search radius in meters (default: 5000m, max: 50000m)
+        max_results: Maximum number of results to return (default: 10, max: 50)
+        
+    Returns:
+        Dictionary containing nearby hotels with details
+    """
+    return find_places(location, category="4bf58dd8d48988d1fa931735", radius=radius, max_results=max_results)
+
+@mcp.tool()
+def find_hospitals(location: str, radius: int = 10000, max_results: int = 10) -> Dict:
+    """
+    Find hospitals near a location - convenience method for common searches.
+    
+    Args:
+        location: Address or location description to search around
+        radius: Search radius in meters (default: 10000m, max: 50000m)
+        max_results: Maximum number of results to return (default: 10, max: 50)
+        
+    Returns:
+        Dictionary containing nearby hospitals with details
+    """
+    return find_places(location, category="4bf58dd8d48988d196941735", radius=radius, max_results=max_results)
+
+@mcp.tool()
+def find_pharmacies(location: str, radius: int = 5000, max_results: int = 10) -> Dict:
+    """
+    Find pharmacies/drug stores near a location - convenience method for common searches.
+    
+    Args:
+        location: Address or location description to search around
+        radius: Search radius in meters (default: 5000m, max: 50000m)
+        max_results: Maximum number of results to return (default: 10, max: 50)
+        
+    Returns:
+        Dictionary containing nearby pharmacies with details
+    """
+    return find_places(location, category="5745c2e4498e11e7bccabdbd", radius=radius, max_results=max_results)
+
+@mcp.tool()
+def find_banks(location: str, radius: int = 5000, max_results: int = 10) -> Dict:
+    """
+    Find banks near a location - convenience method for common searches.
+    
+    Args:
+        location: Address or location description to search around
+        radius: Search radius in meters (default: 5000m, max: 50000m)
+        max_results: Maximum number of results to return (default: 10, max: 50)
+        
+    Returns:
+        Dictionary containing nearby banks with details
+    """
+    return find_places(location, category="4bf58dd8d48988d10a951735", radius=radius, max_results=max_results)
+
+@mcp.tool()
+def find_bars(location: str, radius: int = 5000, max_results: int = 10) -> Dict:
+    """
+    Find bars near a location - convenience method for common searches.
+
+    Args:
+        location: Address or location description to search around
+        radius: Search radius in meters (default: 5000m, max: 50000m)
+        max_results: Maximum number of results to return (default: 10, max: 50)
+        
+    Returns:
+        Dictionary containing nearby bars with details
+    """
+    return find_places(location, category="4bf58dd8d48988d116941735", radius=radius, max_results=max_results)
+
+@mcp.tool()
+def find_movie_theaters(location: str, radius: int = 5000, max_results: int = 10) -> Dict:
+    """
+    Find movie theaters near a location - convenience method for common searches.
+
+    Args:
+        location: Address or location description to search around
+        radius: Search radius in meters (default: 5000m, max: 50000m)
+        max_results: Maximum number of results to return (default: 10, max: 50)
+        
+    Returns:
+        Dictionary containing nearby movie theaters with details
+    """
+    return find_places(location, category="4bf58dd8d48988d17f941735", radius=radius, max_results=max_results)
 
 # ===== STATIC BASEMAP TILE FUNCTIONALITY =====
 
