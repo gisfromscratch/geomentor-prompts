@@ -351,8 +351,8 @@ def reverse_geocode_coordinates(latitude: float, longitude: float) -> Dict:
 
 def get_elevation(latitude: float, longitude: float) -> Dict:
     """
-    Get elevation data for coordinates using ArcGIS Location Platform Elevation Services
-    
+    Get elevation data above mean sea level for coordinates using ArcGIS Location Platform Elevation Services
+
     Args:
         latitude: The latitude coordinate
         longitude: The longitude coordinate
@@ -361,14 +361,13 @@ def get_elevation(latitude: float, longitude: float) -> Dict:
         Dictionary containing elevation result with metadata
     """
     # ArcGIS Location Platform Elevation Service endpoint
-    base_url = "https://elevation-api.arcgis.com/arcgis/rest/services/WorldElevation/Terrain/ImageServer/identify"
+    base_url = "https://elevation-api.arcgis.com/arcgis/rest/services/elevation-service/v1/elevation/at-point"
     
     params = {
         "f": "json",
-        "geometry": f"{longitude},{latitude}",
-        "geometryType": "esriGeometryPoint",
-        "returnGeometry": "false",
-        "returnCatalogItems": "false"
+        "lon": longitude,
+        "lat": latitude,
+        "relativeTo": "meanSeaLevel",  # Use mean sea level for elevation
     }
     
     # Get the API key from environment variable or configuration
@@ -381,9 +380,9 @@ def get_elevation(latitude: float, longitude: float) -> Dict:
         
         data = response.json()
         
-        if data.get("value") is not None:
+        if data.get("result") is not None:
             # Extract elevation data from response
-            elevation_meters = data["value"]
+            elevation_meters = data["result"]["point"]["z"]
             elevation_feet = elevation_meters * 3.28084  # Convert meters to feet
             
             return {
