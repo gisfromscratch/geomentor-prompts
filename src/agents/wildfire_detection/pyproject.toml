@@ -1,0 +1,19 @@
+[project]
+name = "wildfire-detection"
+version = "0.1.0"
+description = "Simple Reflex Agent for Wildfire Detection using condition-action rules"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.32.0",
+    "python-dotenv>=1.0.0",
+    "dataclasses-json>=0.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]
