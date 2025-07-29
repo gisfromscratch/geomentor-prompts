@@ -1,6 +1,6 @@
 [project]
 name = "wildfire-detection"
-version = "0.1.0"
+version = "0.1.0a"
 description = "Simple Reflex Agent for Wildfire Detection using condition-action rules"
 readme = "README.md"
 requires-python = ">=3.12"
