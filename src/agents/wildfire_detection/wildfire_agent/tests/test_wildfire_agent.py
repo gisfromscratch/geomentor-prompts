@@ -2,9 +2,15 @@
 Unit tests for the Simple Reflex Agent for Wildfire Detection
 """
 
-import pytest
+import unittest
 from datetime import datetime
+import os
+import sys
 from unittest.mock import patch, MagicMock
+
+# Add the wildfire_agent directory to the path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+print(sys.path)
 
 from wildfire_agent import (
     SimpleReflexAgent,
@@ -15,7 +21,7 @@ from wildfire_agent import (
 )
 
 
-class TestEnvironmentalPercepts:
+class TestEnvironmentalPercepts(unittest.TestCase):
     """Test the EnvironmentalPercepts dataclass"""
 
     def test_percepts_creation(self):
@@ -32,13 +38,13 @@ class TestEnvironmentalPercepts:
             longitude=-118.2437,
         )
 
-        assert percepts.thermal == 320.5
-        assert percepts.humidity == 45.0
-        assert percepts.landuse == "forest"
-        assert percepts.vegetation_density == 0.8
+        self.assertEqual(percepts.thermal, 320.5)
+        self.assertEqual(percepts.humidity, 45.0)
+        self.assertEqual(percepts.landuse, "forest")
+        self.assertEqual(percepts.vegetation_density, 0.8)
 
 
-class TestLocationServices:
+class TestLocationServices(unittest.TestCase):
     """Test the LocationServices class"""
 
     def test_location_services_without_api_key(self):
@@ -47,20 +53,20 @@ class TestLocationServices:
 
         # Test thermal data
         thermal = services.get_thermal_data(34.0522, -118.2437)
-        assert isinstance(thermal, float)
-        assert thermal > 0
+        self.assertIsInstance(thermal, float)
+        self.assertGreater(thermal, 0)
 
         # Test land cover
         land_cover = services.get_land_cover(34.0522, -118.2437)
-        assert isinstance(land_cover, str)
-        assert land_cover in ["urban", "forest", "grassland"]
+        self.assertIsInstance(land_cover, str)
+        self.assertIn(land_cover, ["urban", "forest", "grassland"])
 
         # Test weather data
         weather = services.get_weather_data(34.0522, -118.2437)
-        assert "humidity" in weather
-        assert "wind_speed" in weather
-        assert isinstance(weather["humidity"], float)
-        assert isinstance(weather["wind_speed"], float)
+        self.assertIn("humidity", weather)
+        self.assertIn("wind_speed", weather)
+        self.assertIsInstance(weather["humidity"], float)
+        self.assertIsInstance(weather["wind_speed"], float)
 
     def test_location_services_different_locations(self):
         """Test that different locations return appropriate mock data"""
@@ -68,21 +74,21 @@ class TestLocationServices:
 
         # Los Angeles should return urban
         la_land_cover = services.get_land_cover(34.0522, -118.2437)
-        assert la_land_cover == "urban"
+        self.assertEqual(la_land_cover, "urban")
 
         # Remote location should return forest or grassland
         remote_land_cover = services.get_land_cover(45.0, -110.0)
-        assert remote_land_cover in ["forest", "grassland"]
+        self.assertIn(remote_land_cover, ["forest", "grassland"])
 
 
-class TestRuleEngine:
+class TestRuleEngine(unittest.TestCase):
     """Test the RuleEngine class"""
 
     def test_rule_engine_creation(self):
         """Test creating a rule engine"""
         engine = RuleEngine()
-        assert len(engine.rules) == 0
-        assert len(engine.rule_names) == 0
+        self.assertEqual(len(engine.rules), 0)
+        self.assertEqual(len(engine.rule_names), 0)
 
     def test_adding_rules(self):
         """Test adding rules to the engine"""
@@ -94,8 +100,8 @@ class TestRuleEngine:
                 return "Test alert"
             return None
 
-        assert len(engine.rules) == 1
-        assert "test_rule" in engine.rule_names.values()
+        self.assertEqual(len(engine.rules), 1)
+        self.assertIn("test_rule", engine.rule_names.values())
 
     def test_rule_evaluation(self):
         """Test rule evaluation"""
@@ -121,9 +127,9 @@ class TestRuleEngine:
         )
 
         decision = engine.evaluate(high_temp_percepts)
-        assert decision.risk_level in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
-        assert len(decision.triggered_rules) > 0
-        assert decision.alert_message is not None
+        self.assertIn(decision.risk_level, ["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+        self.assertGreater(len(decision.triggered_rules), 0)
+        self.assertIsNotNone(decision.alert_message)
 
         # Test with normal temperature
         normal_temp_percepts = EnvironmentalPercepts(
@@ -139,34 +145,36 @@ class TestRuleEngine:
         )
 
         decision = engine.evaluate(normal_temp_percepts)
-        assert len(decision.triggered_rules) == 0
-        assert decision.alert_message is None
+        self.assertEqual(len(decision.triggered_rules), 0)
+        self.assertIsNone(decision.alert_message)
 
 
-class TestSimpleReflexAgent:
+class TestSimpleReflexAgent(unittest.TestCase):
     """Test the SimpleReflexAgent class"""
 
     def test_agent_initialization(self):
         """Test agent initialization"""
         agent = SimpleReflexAgent()
-        assert agent.location_services is not None
-        assert agent.rule_engine is not None
-        assert len(agent.rule_engine.rules) > 0  # Should have default rules
+        self.assertIsNotNone(agent.location_services)
+        self.assertIsNotNone(agent.rule_engine)
+        self.assertGreater(len(agent.rule_engine.rules), 0)  # Should have default rules
 
     def test_agent_perceive(self):
         """Test agent perception"""
         agent = SimpleReflexAgent()
         percepts = agent.perceive(34.0522, -118.2437)
 
-        assert isinstance(percepts, EnvironmentalPercepts)
-        assert percepts.latitude == 34.0522
-        assert percepts.longitude == -118.2437
-        assert percepts.thermal > 0
-        assert 0 <= percepts.humidity <= 100
-        assert percepts.wind_speed >= 0
-        assert percepts.landuse in ["urban", "forest", "grassland"]
-        assert 0 <= percepts.vegetation_density <= 1
-        assert percepts.asset_proximity > 0
+        self.assertIsInstance(percepts, EnvironmentalPercepts)
+        self.assertEqual(percepts.latitude, 34.0522)
+        self.assertEqual(percepts.longitude, -118.2437)
+        self.assertGreater(percepts.thermal, 0)
+        self.assertGreaterEqual(percepts.humidity, 0)
+        self.assertLessEqual(percepts.humidity, 100)
+        self.assertGreaterEqual(percepts.wind_speed, 0)
+        self.assertIn(percepts.landuse, ["urban", "forest", "grassland"])
+        self.assertGreaterEqual(percepts.vegetation_density, 0)
+        self.assertLessEqual(percepts.vegetation_density, 1)
+        self.assertGreater(percepts.asset_proximity, 0)
 
     def test_agent_decide(self):
         """Test agent decision making"""
@@ -186,10 +194,11 @@ class TestSimpleReflexAgent:
         )
 
         decision = agent.decide(percepts)
-        assert isinstance(decision, WildfireDecision)
-        assert decision.risk_level in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
-        assert 0 <= decision.confidence <= 1
-        assert isinstance(decision.triggered_rules, list)
+        self.assertIsInstance(decision, WildfireDecision)
+        self.assertIn(decision.risk_level, ["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+        self.assertGreaterEqual(decision.confidence, 0)
+        self.assertLessEqual(decision.confidence, 1)
+        self.assertIsInstance(decision.triggered_rules, list)
 
     def test_agent_full_cycle(self):
         """Test complete agent execution cycle"""
@@ -198,9 +207,9 @@ class TestSimpleReflexAgent:
         # Run the agent
         decision = agent.run(34.0522, -118.2437)
 
-        assert isinstance(decision, WildfireDecision)
-        assert decision.risk_level in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
-        assert decision.timestamp is not None
+        self.assertIsInstance(decision, WildfireDecision)
+        self.assertIn(decision.risk_level, ["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+        self.assertIsNotNone(decision.timestamp)
 
     def test_custom_rule_addition(self):
         """Test adding custom rules to the agent"""
@@ -213,10 +222,10 @@ class TestSimpleReflexAgent:
                 return "Custom alert"
             return None
 
-        assert len(agent.rule_engine.rules) == initial_rule_count + 1
+        self.assertEqual(len(agent.rule_engine.rules), initial_rule_count + 1)
 
 
-class TestIntegration:
+class TestIntegration(unittest.TestCase):
     """Integration tests for the complete system"""
 
     def test_high_risk_scenario(self):
@@ -239,10 +248,10 @@ class TestIntegration:
         decision = agent.decide(high_risk_percepts)
 
         # Should trigger multiple rules and have high risk
-        assert len(decision.triggered_rules) > 0
-        assert decision.risk_level in ["HIGH", "CRITICAL"]
-        assert decision.alert_message is not None
-        assert decision.confidence > 0
+        self.assertGreater(len(decision.triggered_rules), 0)
+        self.assertIn(decision.risk_level, ["HIGH", "CRITICAL"])
+        self.assertIsNotNone(decision.alert_message)
+        self.assertGreater(decision.confidence, 0)
 
     def test_low_risk_scenario(self):
         """Test a low-risk scenario"""
@@ -264,57 +273,89 @@ class TestIntegration:
         decision = agent.decide(low_risk_percepts)
 
         # Should not trigger rules and have low risk
-        assert len(decision.triggered_rules) == 0
-        assert decision.risk_level == "LOW"
-        assert decision.alert_message is None
-        assert decision.confidence == 0.0
+        self.assertEqual(len(decision.triggered_rules), 0)
+        self.assertEqual(decision.risk_level, "LOW")
+        self.assertIsNone(decision.alert_message)
+        self.assertEqual(decision.confidence, 0.0)
 
 
-# Test fixtures and parametrized tests
-@pytest.mark.parametrize(
-    "lat,lon,expected_land_cover",
-    [
-        (34.0522, -118.2437, "urban"),  # Los Angeles
-        (45.0, -110.0, "forest"),  # Remote area
-    ],
-)
-def test_location_land_cover_mapping(lat, lon, expected_land_cover):
+class TestLocationLandCoverMapping(unittest.TestCase):
     """Test land cover mapping for different locations"""
-    services = LocationServices()
-    land_cover = services.get_land_cover(lat, lon)
-    assert land_cover == expected_land_cover
+
+    def test_los_angeles_land_cover(self):
+        """Test Los Angeles land cover mapping"""
+        services = LocationServices()
+        land_cover = services.get_land_cover(34.0522, -118.2437)
+        self.assertEqual(land_cover, "urban")
+
+    def test_remote_area_land_cover(self):
+        """Test remote area land cover mapping"""
+        services = LocationServices()
+        land_cover = services.get_land_cover(45.0, -110.0)
+        self.assertEqual(land_cover, "forest")
 
 
-@pytest.mark.parametrize(
-    "thermal,humidity,wind,expected_risk_level",
-    [
-        (340.0, 10.0, 30.0, "CRITICAL"),  # Very high risk
-        (320.0, 25.0, 18.0, "MEDIUM"),  # Medium risk
-        (280.0, 80.0, 5.0, "LOW"),  # Low risk
-    ],
-)
-def test_risk_level_scenarios(thermal, humidity, wind, expected_risk_level):
+class TestRiskLevelScenarios(unittest.TestCase):
     """Test different risk level scenarios"""
-    agent = SimpleReflexAgent()
 
-    percepts = EnvironmentalPercepts(
-        thermal=thermal,
-        humidity=humidity,
-        wind_speed=wind,
-        landuse="forest",
-        vegetation_density=0.7,
-        asset_proximity=5.0,
-        timestamp=datetime.now(),
-        latitude=40.0,
-        longitude=-120.0,
-    )
+    def test_very_high_risk_scenario(self):
+        """Test very high risk scenario"""
+        agent = SimpleReflexAgent()
 
-    decision = agent.decide(percepts)
-    # Note: The exact risk level depends on the specific rule thresholds
-    # This test checks that the system produces a valid risk level
-    assert decision.risk_level in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        percepts = EnvironmentalPercepts(
+            thermal=340.0,
+            humidity=10.0,
+            wind_speed=30.0,
+            landuse="forest",
+            vegetation_density=0.7,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=40.0,
+            longitude=-120.0,
+        )
+
+        decision = agent.decide(percepts)
+        self.assertIn(decision.risk_level, ["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+
+    def test_medium_risk_scenario(self):
+        """Test medium risk scenario"""
+        agent = SimpleReflexAgent()
+
+        percepts = EnvironmentalPercepts(
+            thermal=320.0,
+            humidity=25.0,
+            wind_speed=18.0,
+            landuse="forest",
+            vegetation_density=0.7,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=40.0,
+            longitude=-120.0,
+        )
+
+        decision = agent.decide(percepts)
+        self.assertIn(decision.risk_level, ["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+
+    def test_low_risk_scenario(self):
+        """Test low risk scenario"""
+        agent = SimpleReflexAgent()
+
+        percepts = EnvironmentalPercepts(
+            thermal=280.0,
+            humidity=80.0,
+            wind_speed=5.0,
+            landuse="forest",
+            vegetation_density=0.7,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=40.0,
+            longitude=-120.0,
+        )
+
+        decision = agent.decide(percepts)
+        self.assertIn(decision.risk_level, ["LOW", "MEDIUM", "HIGH", "CRITICAL"])
 
 
 if __name__ == "__main__":
     # Run tests if executed directly
-    pytest.main([__file__])
+    unittest.main()

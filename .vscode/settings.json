@@ -1,6 +1,7 @@
 {
     "python.analysis.extraPaths": [
-        "./src/mcp/server/location"
+        "./src/mcp/server/location",
+        "./src/agents/wildfire_detection"
     ],
     "python.testing.unittestArgs": [
         "-v",
