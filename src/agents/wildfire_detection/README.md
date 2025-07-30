@@ -75,7 +75,7 @@ def high_temperature_forest_rule(percepts):
 
 Run tests with:
 ```bash
-uv run pytest
+uv --directory src/agents/wildfire_detection run test_scenarios.py
 ```
 
 ## 📊 Data Sources
