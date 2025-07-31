@@ -9,9 +9,9 @@ from .agent import (
     SimpleReflexAgent,
     EnvironmentalPercepts,
     WildfireDecision,
-    LocationServices,
     RuleEngine,
 )
+from .location import LocationServices
 
 __all__ = [
     "SimpleReflexAgent",
