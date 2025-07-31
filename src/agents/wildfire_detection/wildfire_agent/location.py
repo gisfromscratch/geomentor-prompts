@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, UTC
 import logging
 import os
 from typing import Dict, Optional
@@ -83,3 +84,73 @@ class LocationServices:
             return 15.0  # Remote forest areas
 
         return 10.0
+
+    def get_thermal_activity_nearby(self, lat: float, lon: float, distance: int = 5000) -> Dict[str, float]:
+        """
+        Detect thermal activities (hotspots, fires) within specified distance
+        
+        Args:
+            lat: Latitude coordinate
+            lon: Longitude coordinate  
+            distance: Search radius in meters (default: 5000m = 5km)
+            
+        Returns:
+            Dictionary containing:
+            - latitude, longitude: Coordinates of nearest detected thermal activity
+            - confidence: Float between 0-1 indicating detection confidence
+            - distance: Distance to nearest thermal activity in meters
+            - acquisition: Date and time when the thermal activity was first detected
+        """
+        # Mock implementation - replace with actual thermal anomaly detection API
+        if not self.rapidapi_key:
+            # Return mock thermal activity data based on location and environmental conditions
+            land_cover = self.get_land_cover(lat, lon)
+            thermal_temp = self.get_thermal_data(lat, lon)
+            weather = self.get_weather_data(lat, lon)
+            
+            # Higher chance of thermal activity in dry, hot conditions
+            base_confidence = 0.0
+            hours_detected = 0.0
+            
+            # Increase confidence based on conditions
+            if thermal_temp > 320:  # High temperature
+                base_confidence += 0.3
+                hours_detected = 2.5
+                
+            if weather["humidity"] < 30:  # Low humidity
+                base_confidence += 0.2
+                hours_detected += 1.0
+                
+            if land_cover == "forest" and thermal_temp > 310:
+                base_confidence += 0.4
+                hours_detected += 3.0
+                
+            # Add some location-specific hotspots for testing
+            thermal_lat, thermal_lon = None, None
+            if abs(lat - 34.0522) < 0.1 and abs(lon + 118.2437) < 0.1:  # LA area
+                base_confidence = 0.7
+                hours_detected = 6.5
+                thermal_lat, thermal_lon = 34.0522, -118.2437
+            elif 37.0 < lat < 38.0 and -122.0 < lon < -121.0:  # Bay Area
+                thermal_lat, thermal_lon = 37.7749, -122.4194
+                base_confidence = 0.4
+                hours_detected = 12.0
+                
+            return {
+                "latitude": thermal_lat,
+                "longitude": thermal_lon,
+                "confidence": min(base_confidence, 1.0),
+                "distance": distance,
+                "acquisition": (datetime.now(UTC) - timedelta(hours=hours_detected)).isoformat()
+            }
+
+        # TODO: Implement actual thermal activity detection API call
+        # This would typically query MODIS/VIIRS fire detection APIs
+        # or other satellite-based thermal anomaly detection services
+        return {
+            "latitude": thermal_lat,
+            "longitude": thermal_lon,
+            "confidence": 0.5,
+            "distance": distance,
+            "acquisition": (datetime.now(UTC) - timedelta(hours=hours_detected)).isoformat()
+        }

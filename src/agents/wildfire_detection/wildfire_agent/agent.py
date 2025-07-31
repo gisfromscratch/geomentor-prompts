@@ -8,7 +8,7 @@ wildfire risk based on environmental percepts.
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, UTC
 from typing import Dict, List, Optional, Callable
 from dotenv import load_dotenv
 from location import LocationServices
@@ -172,14 +172,70 @@ class SimpleReflexAgent:
                 return "🏘️ MEDIUM wildfire risk: Potential threat to nearby assets"
             return None
 
-    def perceive(self, lat: float, lon: float) -> EnvironmentalPercepts:
-        """Perceive environmental conditions at given location"""
+    def perceive(self, lat: float, lon: float, 
+                 max_thermal_age_hours: float = 6.0,
+                 max_weather_age_hours: float = 12.0) -> EnvironmentalPercepts:
+        """
+        Perceive environmental conditions at given location
+        
+        Args:
+            lat: Latitude coordinate
+            lon: Longitude coordinate  
+            max_thermal_age_hours: Maximum age for thermal data to be considered valid (default: 6 hours)
+            max_weather_age_hours: Maximum age for weather data to be considered valid (default: 12 hours)
+        """
         logger.info(f"Perceiving environmental data at ({lat}, {lon})")
 
         try:
+            # Detect thermal anomalies, land cover, weather, vegetation density, and asset proximity
+            # Get thermal data with global coverage is not available, so we mock it
             thermal = self.location_services.get_thermal_data(lat, lon)
+            
+            # Check for nearby thermal activity with time constraint
+            thermal_nearby = self.location_services.get_thermal_activity_nearby(lat, lon)
+            if (
+                thermal_nearby
+                and thermal_nearby["confidence"] > 0.5
+                and thermal_nearby.get("acquisition")
+            ):
+                try:
+                    acquisition_time = datetime.fromisoformat(thermal_nearby["acquisition"])
+                except (ValueError, TypeError):
+                    acquisition_time = None
+
+                if acquisition_time and datetime.now(UTC) - acquisition_time <= timedelta(hours=max_thermal_age_hours):
+                    thermal_threshold = float(os.getenv("THERMAL_THRESHOLD", "330"))
+                    thermal = thermal_threshold
+                    logger.info(
+                        f"Using nearby thermal activity: confidence={thermal_nearby['confidence']:.2f}, "
+                        f"detected {thermal_nearby.get('hours_since_detected', 'N/A')} hours ago"
+                    )
+                elif (
+                    "hours_since_detected" in thermal_nearby
+                    and thermal_nearby["hours_since_detected"] > max_thermal_age_hours
+                ):
+                    logger.info(
+                        f"Ignoring stale thermal activity: {thermal_nearby['hours_since_detected']:.1f} hours old "
+                        f"(max age: {max_thermal_age_hours} hours)"
+                    )
+            elif (
+                thermal_nearby
+                and "hours_since_detected" in thermal_nearby
+                and thermal_nearby["hours_since_detected"] > max_thermal_age_hours
+            ):
+                logger.info(
+                    f"Ignoring stale thermal activity: {thermal_nearby['hours_since_detected']:.1f} hours old "
+                    f"(max age: {max_thermal_age_hours} hours)"
+                )
+            
+            # Land cover data is relatively stable and doesn't need time constraints
             land_cover = self.location_services.get_land_cover(lat, lon)
+            
+            # Weather data should be recent for accurate fire risk assessment
             weather = self.location_services.get_weather_data(lat, lon)
+            # Note: In a real implementation, you would check the timestamp of weather data
+            # and reject data older than max_weather_age_hours
+            
             vegetation = self.location_services.get_vegetation_density(lat, lon)
             assets = self.location_services.get_asset_proximity(lat, lon)
 
