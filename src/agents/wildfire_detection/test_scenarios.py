@@ -5,6 +5,7 @@ Test script to demonstrate wildfire detection with various risk scenarios
 
 from wildfire_agent import SimpleReflexAgent, EnvironmentalPercepts
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 def test_high_risk_scenarios():
@@ -72,6 +73,20 @@ def test_high_risk_scenarios():
                 longitude=-122.4194,
             ),
         },
+        {
+            "name": "Canadian Wildfire SS027-25",
+            "percepts": EnvironmentalPercepts(
+                thermal=294.0,
+                humidity=82.0,
+                wind_speed=6.4,
+                landuse="rangeland",
+                vegetation_density=0.63,
+                asset_proximity=30.0,
+                timestamp=datetime(2025, 8, 4, 22, 47, 0, tzinfo=ZoneInfo("America/Inuvik")),
+                latitude=61.291,
+                longitude=-112.821,
+            ),
+        }
     ]
 
     for i, scenario in enumerate(scenarios, 1):
