@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, UTC
 from typing import Dict, List, Optional, Callable
 from dotenv import load_dotenv
-from location import LocationServices
+from wildfire_agent.location import LocationServices
 
 # Load environment variables
 load_dotenv()

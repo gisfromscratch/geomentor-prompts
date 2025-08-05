@@ -5,13 +5,13 @@ This module provides a simple reflex agent for wildfire detection based on
 environmental percepts and condition-action rules.
 """
 
-from .agent import (
+from wildfire_agent.agent import (
     SimpleReflexAgent,
     EnvironmentalPercepts,
     WildfireDecision,
     RuleEngine,
 )
-from .location import LocationServices
+from wildfire_agent.location import LocationServices
 
 __all__ = [
     "SimpleReflexAgent",
