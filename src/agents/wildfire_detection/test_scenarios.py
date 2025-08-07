@@ -85,7 +85,21 @@ def test_high_risk_scenarios():
                 timestamp=datetime(2025, 8, 4, 22, 47, 0, tzinfo=ZoneInfo("America/Inuvik")),
                 latitude=61.291,
                 longitude=-112.821,
-            ),
+            )
+        },
+        {
+            "name": "Canadian Wildfire K51411",
+            "percepts": EnvironmentalPercepts(
+                thermal=302.0,
+                humidity=24.0,
+                wind_speed=13.6,
+                landuse="built area",
+                vegetation_density=0.7,
+                asset_proximity=1.0,
+                timestamp=datetime(2025, 8, 5, 22, 50, 0, tzinfo=ZoneInfo("America/Vancouver")),
+                latitude=49.4841,
+                longitude=-119.603,
+            )
         }
     ]
 
