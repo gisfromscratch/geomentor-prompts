@@ -295,6 +295,226 @@ class TestLocationLandCoverMapping(unittest.TestCase):
         self.assertEqual(land_cover, "forest")
 
 
+class TestValidationGuardrails(unittest.TestCase):
+    """Test validation guardrails for filtering noise and invalid data"""
+
+    def setUp(self):
+        """Set up test agent"""
+        self.agent = SimpleReflexAgent()
+
+    def test_valid_percepts(self):
+        """Test that valid percepts pass validation"""
+        valid_percepts = EnvironmentalPercepts(
+            thermal=320.5,
+            humidity=45.0,
+            wind_speed=12.0,
+            landuse="forest",
+            vegetation_density=0.8,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=34.0522,
+            longitude=-118.2437,
+        )
+        self.assertTrue(self.agent.validate(valid_percepts))
+
+    def test_none_thermal_fails(self):
+        """Test that None thermal data fails validation"""
+        invalid_percepts = EnvironmentalPercepts(
+            thermal=None,
+            humidity=45.0,
+            wind_speed=12.0,
+            landuse="forest",
+            vegetation_density=0.8,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=34.0522,
+            longitude=-118.2437,
+        )
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+    def test_none_humidity_fails(self):
+        """Test that None humidity data fails validation"""
+        invalid_percepts = EnvironmentalPercepts(
+            thermal=320.5,
+            humidity=None,
+            wind_speed=12.0,
+            landuse="forest",
+            vegetation_density=0.8,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=34.0522,
+            longitude=-118.2437,
+        )
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+    def test_negative_thermal_fails(self):
+        """Test that negative thermal data fails validation"""
+        invalid_percepts = EnvironmentalPercepts(
+            thermal=-10.0,
+            humidity=45.0,
+            wind_speed=12.0,
+            landuse="forest",
+            vegetation_density=0.8,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=34.0522,
+            longitude=-118.2437,
+        )
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+    def test_invalid_humidity_range_fails(self):
+        """Test that humidity outside 0-100 range fails validation"""
+        # Test negative humidity
+        invalid_percepts = EnvironmentalPercepts(
+            thermal=320.5,
+            humidity=-5.0,
+            wind_speed=12.0,
+            landuse="forest",
+            vegetation_density=0.8,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=34.0522,
+            longitude=-118.2437,
+        )
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+        # Test humidity over 100
+        invalid_percepts.humidity = 150.0
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+    def test_unrealistic_thermal_range_fails(self):
+        """Test that unrealistic thermal values fail validation"""
+        # Test extremely low temperature (below realistic Earth range)
+        invalid_percepts = EnvironmentalPercepts(
+            thermal=100.0,  # Too cold for surface temperature
+            humidity=45.0,
+            wind_speed=12.0,
+            landuse="forest",
+            vegetation_density=0.8,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=34.0522,
+            longitude=-118.2437,
+        )
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+        # Test extremely high temperature
+        invalid_percepts.thermal = 500.0  # Too hot for surface temperature
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+    def test_invalid_wind_speed_fails(self):
+        """Test that invalid wind speed values fail validation"""
+        # Test negative wind speed
+        invalid_percepts = EnvironmentalPercepts(
+            thermal=320.5,
+            humidity=45.0,
+            wind_speed=-5.0,
+            landuse="forest",
+            vegetation_density=0.8,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=34.0522,
+            longitude=-118.2437,
+        )
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+        # Test unrealistically high wind speed
+        invalid_percepts.wind_speed = 500.0  # Unrealistic wind speed
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+    def test_invalid_vegetation_density_fails(self):
+        """Test that vegetation density outside 0-1 range fails validation"""
+        # Test negative vegetation density
+        invalid_percepts = EnvironmentalPercepts(
+            thermal=320.5,
+            humidity=45.0,
+            wind_speed=12.0,
+            landuse="forest",
+            vegetation_density=-0.1,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=34.0522,
+            longitude=-118.2437,
+        )
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+        # Test vegetation density over 1.0
+        invalid_percepts.vegetation_density = 1.5
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+    def test_invalid_asset_proximity_fails(self):
+        """Test that negative asset proximity fails validation"""
+        invalid_percepts = EnvironmentalPercepts(
+            thermal=320.5,
+            humidity=45.0,
+            wind_speed=12.0,
+            landuse="forest",
+            vegetation_density=0.8,
+            asset_proximity=-1.0,
+            timestamp=datetime.now(),
+            latitude=34.0522,
+            longitude=-118.2437,
+        )
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+    def test_invalid_coordinates_fail(self):
+        """Test that invalid geographic coordinates fail validation"""
+        # Test invalid latitude (> 90)
+        invalid_percepts = EnvironmentalPercepts(
+            thermal=320.5,
+            humidity=45.0,
+            wind_speed=12.0,
+            landuse="forest",
+            vegetation_density=0.8,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=95.0,  # Invalid latitude
+            longitude=-118.2437,
+        )
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+        # Test invalid longitude (> 180)
+        invalid_percepts.latitude = 34.0522
+        invalid_percepts.longitude = 185.0  # Invalid longitude
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+    def test_invalid_landuse_fails(self):
+        """Test that invalid landuse values fail validation"""
+        invalid_percepts = EnvironmentalPercepts(
+            thermal=320.5,
+            humidity=45.0,
+            wind_speed=12.0,
+            landuse="invalid_landuse",  # Not in allowed categories
+            vegetation_density=0.8,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=34.0522,
+            longitude=-118.2437,
+        )
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+    def test_none_values_for_critical_fields(self):
+        """Test that None values for critical fields fail validation"""
+        # Test None wind_speed
+        invalid_percepts = EnvironmentalPercepts(
+            thermal=320.5,
+            humidity=45.0,
+            wind_speed=None,
+            landuse="forest",
+            vegetation_density=0.8,
+            asset_proximity=5.0,
+            timestamp=datetime.now(),
+            latitude=34.0522,
+            longitude=-118.2437,
+        )
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+        # Test None vegetation_density
+        invalid_percepts.wind_speed = 12.0
+        invalid_percepts.vegetation_density = None
+        self.assertFalse(self.agent.validate(invalid_percepts))
+
+
 class TestRiskLevelScenarios(unittest.TestCase):
     """Test different risk level scenarios"""
 
