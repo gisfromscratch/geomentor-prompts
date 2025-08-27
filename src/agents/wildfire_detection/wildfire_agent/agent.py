@@ -260,6 +260,20 @@ class SimpleReflexAgent:
             logger.error(f"Error perceiving environmental data: {e}")
             raise
 
+    def validate(self, percepts: EnvironmentalPercepts) -> bool:
+        """Validate percepts before decision making"""
+        logger.info("Validating percepts")
+        if percepts.thermal is None or percepts.humidity is None:
+            logger.error("Missing required percepts")
+            return False
+
+        # Thermal is in Kelvin and humidity is in percentage
+        if percepts.thermal < 0 or percepts.humidity < 0 or percepts.humidity > 100:
+            logger.error("Invalid percepts detected")
+            return False
+        
+        return True
+
     def decide(self, percepts: EnvironmentalPercepts) -> WildfireDecision:
         """Apply rule engine to make decision"""
         logger.info("Evaluating percepts with rule engine")
@@ -284,6 +298,11 @@ class SimpleReflexAgent:
 
         # Perceive
         percepts = self.perceive(lat, lon)
+
+        # Validate
+        if not self.validate(percepts):
+            logger.error("Invalid percepts, aborting decision")
+            return None
 
         # Decide
         decision = self.decide(percepts)
