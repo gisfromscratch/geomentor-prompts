@@ -67,6 +67,17 @@ class RuleEngine:
 
         return decorator
 
+    def adaptive_thresholding(self, percepts: EnvironmentalPercepts, base_threshold: float = 0.6) -> float:
+        """Apply adaptive thresholding to the confidence score"""
+        p_thr = base_threshold
+        if percepts.asset_proximity is not None and percepts.asset_proximity < 500:
+            p_thr -= 0.1  # lower threshold near critical assets
+        if percepts.vegetation_density is not None and percepts.vegetation_density > 0.7:
+            p_thr -= 0.05  # dense vegetation increases sensitivity
+        if percepts.humidity is not None and percepts.humidity > 0.7:
+            p_thr += 0.1  # damp conditions justify higher threshold
+        return max(0.4, min(p_thr, 0.9))  # keep thresholds in safe range
+
     def evaluate(self, percepts: EnvironmentalPercepts) -> WildfireDecision:
         """Evaluate all rules against the percepts"""
         triggered_rules = []
@@ -98,6 +109,21 @@ class RuleEngine:
 
         # Calculate confidence based on number of triggered rules
         confidence = min(len(triggered_rules) * 0.3, 1.0) if triggered_rules else 0.0
+
+        if max_risk_level == "CRITICAL":
+            confidence = 1.0
+        elif max_risk_level == "HIGH":
+            confidence = min(confidence + 0.1, 1.0)
+        elif max_risk_level == "MEDIUM":
+            confidence = min(confidence + 0.05, 1.0)
+
+        # Adaptive thresholding for confidence
+        confidence_threshold = self.adaptive_thresholding(percepts)
+        if confidence < confidence_threshold:
+            max_risk_level = "LOW"
+            alerts = []
+            triggered_rules = []
+            confidence = 0.0
 
         alert_message = "; ".join(alerts) if alerts else None
 
