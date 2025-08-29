@@ -261,15 +261,55 @@ class SimpleReflexAgent:
             raise
 
     def validate(self, percepts: EnvironmentalPercepts) -> bool:
-        """Validate percepts before decision making"""
+        """Validate percepts before decision making - pre-filter guardrails"""
         logger.info("Validating percepts")
-        if percepts.thermal is None or percepts.humidity is None:
+        
+        # Check for None values in critical fields
+        if (percepts.thermal is None or percepts.humidity is None or 
+            percepts.wind_speed is None or percepts.vegetation_density is None or
+            percepts.asset_proximity is None or percepts.landuse is None or
+            percepts.latitude is None or percepts.longitude is None):
             logger.error("Missing required percepts")
             return False
 
-        # Thermal is in Kelvin and humidity is in percentage
-        if percepts.thermal < 0 or percepts.humidity < 0 or percepts.humidity > 100:
-            logger.error("Invalid percepts detected")
+        # Validate thermal temperature (realistic Earth surface temperatures in Kelvin)
+        if percepts.thermal < 200 or percepts.thermal > 400:
+            logger.error(f"Unrealistic thermal temperature: {percepts.thermal}K (valid range: 200-400K)")
+            return False
+
+        # Validate humidity percentage (0-100%)
+        if percepts.humidity < 0 or percepts.humidity > 100:
+            logger.error(f"Invalid humidity: {percepts.humidity}% (valid range: 0-100%)")
+            return False
+
+        # Validate wind speed (non-negative, realistic maximum)
+        if percepts.wind_speed < 0 or percepts.wind_speed > 200:
+            logger.error(f"Invalid wind speed: {percepts.wind_speed} km/h (valid range: 0-200 km/h)")
+            return False
+
+        # Validate vegetation density (0-1 index)
+        if percepts.vegetation_density < 0 or percepts.vegetation_density > 1:
+            logger.error(f"Invalid vegetation density: {percepts.vegetation_density} (valid range: 0-1)")
+            return False
+
+        # Validate asset proximity (non-negative distance)
+        if percepts.asset_proximity < 0:
+            logger.error(f"Invalid asset proximity: {percepts.asset_proximity} km (must be >= 0)")
+            return False
+
+        # Validate geographic coordinates
+        if percepts.latitude < -90 or percepts.latitude > 90:
+            logger.error(f"Invalid latitude: {percepts.latitude} (valid range: -90 to 90)")
+            return False
+        
+        if percepts.longitude < -180 or percepts.longitude > 180:
+            logger.error(f"Invalid longitude: {percepts.longitude} (valid range: -180 to 180)")
+            return False
+
+        # Validate landuse classification
+        valid_landuses = {"urban", "forest", "grassland"}
+        if percepts.landuse not in valid_landuses:
+            logger.error(f"Invalid landuse: {percepts.landuse} (valid options: {valid_landuses})")
             return False
         
         return True
