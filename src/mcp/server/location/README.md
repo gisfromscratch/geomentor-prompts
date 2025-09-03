@@ -1,7 +1,7 @@
 # Location Services Documentation
 
 ## Overview
-The Location MCP Server includes geocoding, reverse geocoding, elevation data services, map display, routing functionality, and nearby places search using ArcGIS Location Platform services to provide comprehensive location-based services including coordinate conversion, elevation information, and point-of-interest discovery.
+The Location MCP Server includes geocoding, reverse geocoding, elevation data services, map display, routing functionality, nearby places search, and ArcGIS Online content search using ArcGIS Location Platform services to provide comprehensive location-based services including coordinate conversion, elevation information, point-of-interest discovery, and web map/layer search capabilities.
 
 ## Features
 - **Address Geocoding**: Convert text addresses to latitude/longitude coordinates
@@ -15,6 +15,7 @@ The Location MCP Server includes geocoding, reverse geocoding, elevation data se
 - **🆕 Smart Map Rendering**: Automatic zoom level and style selection based on location type
 - **🆕 Location String Support**: Render maps directly from address/place strings with auto-geocoding
 - **Nearby Places Search**: Find places of interest around a location with category filtering
+- **🆕 ArcGIS Online Content Search**: Search for webmaps, layers, and services on ArcGIS Online
 - **Metadata Storage**: Store geocoded, elevation, and routing results for efficient retrieval
 - **Error Handling**: Robust error handling for failed requests
 - **Resource Endpoints**: Access location, elevation, and places data through MCP resources
@@ -80,6 +81,72 @@ Find nearby places around specific coordinates with optional category filtering.
 
 **Returns:**
 Similar structure to `find_places` but with coordinate-based search query information.
+
+### `search_webmaps_and_layers(query: str = "", item_types: Optional[List[str]] = None, bbox: Optional[str] = None, start: int = 1, num: int = 50, sort_field: Optional[str] = None, sort_order: str = "desc")` 🆕
+Search ArcGIS Online for webmaps and layers. Returns items with portal links and service URLs.
+
+**Parameters:**
+- `query` (str): Search keywords (e.g., "forest", "population", "traffic")
+- `item_types` (Optional[List[str]]): List of item types to search for. Common types:
+  - `["Web Map"]` for webmaps only
+  - `["Feature Layer", "Feature Service"]` for feature layers
+  - `["Map Service", "Image Service"]` for other services
+  - If not specified, searches all types
+- `bbox` (Optional[str]): Bounding box to filter results spatially (format: "xmin,ymin,xmax,ymax" in WGS84)
+- `start` (int): Starting position for pagination (default: 1)
+- `num` (int): Number of results per page (1-100, default: 50)
+- `sort_field` (Optional[str]): Field to sort by ("avgRating", "numViews", "title", "created", "modified")
+- `sort_order` (str): Sort order "asc" or "desc" (default: "desc")
+
+**Returns:**
+```json
+{
+    "success": true,
+    "search_query": {
+        "query": "forest AND type:\"Web Map\"",
+        "original_query": "forest",
+        "item_types": ["Web Map"],
+        "bbox": null,
+        "start": 1,
+        "num": 50,
+        "sort_field": "avgRating",
+        "sort_order": "desc"
+    },
+    "results": {
+        "total_results": 150,
+        "returned_results": 50,
+        "start": 1,
+        "num": 50,
+        "items": [
+            {
+                "id": "abc123def456",
+                "title": "Global Forest Watch",
+                "owner": "wri",
+                "type": "Web Map",
+                "description": "Real-time monitoring of global forest cover and loss",
+                "snippet": "Interactive map showing forest cover worldwide",
+                "tags": ["forest", "deforestation", "environment"],
+                "thumbnail": "thumbnail.png",
+                "access": "public",
+                "num_views": 15432,
+                "avg_rating": 4.7,
+                "num_ratings": 23,
+                "created": 1514764800000,
+                "modified": 1672531200000,
+                "portal_item_url": "https://www.arcgis.com/home/item.html?id=abc123def456",
+                "service_url": "https://services.arcgis.com/.../FeatureServer", // For services
+                "feature_server_url": "https://services.arcgis.com/.../FeatureServer" // For feature layers
+            }
+        ]
+    },
+    "type_breakdown": {
+        "Web Map": 25,
+        "Feature Service": 15,
+        "Feature Layer": 10
+    },
+    "chat_summary": "Found 150 items matching 'forest' of type 'Web Map'. Top results: Global Forest Watch (Web Map), Forest Fire Risk (Feature Service), Protected Areas (Feature Layer)"
+}
+```
 
 ### `geocode(address: str)`
 Geocodes an address and returns coordinates with metadata.
