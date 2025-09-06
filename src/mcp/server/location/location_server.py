@@ -449,11 +449,12 @@ def search_arcgis_online(
                     "num_ratings": result.get("numRatings", 0),
                     "created": result.get("created", 0),
                     "modified": result.get("modified", 0),
+                    "lastViewed": result.get("lastViewed", 0),
                     "size": result.get("size", 0)
                 }
 
                 # Convert Esri unix timestamps to ISO format
-                for time_field in ["created", "modified"]:
+                for time_field in ["created", "modified", "lastViewed"]:
                     if item_info[time_field]:
                         item_info[time_field] = datetime.fromtimestamp(item_info[time_field] * 1e-3, UTC).isoformat()
 
