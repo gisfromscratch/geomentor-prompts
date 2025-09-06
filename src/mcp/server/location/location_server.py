@@ -385,13 +385,18 @@ def search_arcgis_online(
     if query.strip():
         query_parts.append(query.strip())
     
-    # Add item type filters
-    if item_types:
-        for item_type in item_types:
-            query_parts.append(f'type:"{item_type}"')
-    
     # Combine query parts
     search_query = " AND ".join(query_parts) if query_parts else "*"
+
+    # Add item type filters
+    item_type_query_parts = []
+    if item_types:
+        for item_type in item_types:
+            item_type_query_parts.append(f'type:"{item_type}"')
+    
+    item_type_query = " OR ".join(item_type_query_parts) if item_type_query_parts else None
+    if item_type_query:
+        search_query = f"({search_query}) AND ({item_type_query})"
     
     # Build parameters
     params = {
