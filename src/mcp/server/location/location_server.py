@@ -1,3 +1,4 @@
+from datetime import datetime, UTC
 from mcp.server.fastmcp import FastMCP, Image
 from PIL import Image as PILImage
 from io import BytesIO
@@ -450,7 +451,12 @@ def search_arcgis_online(
                     "modified": result.get("modified", 0),
                     "size": result.get("size", 0)
                 }
-                
+
+                # Convert Esri unix timestamps to ISO format
+                for time_field in ["created", "modified"]:
+                    if item_info[time_field]:
+                        item_info[time_field] = datetime.fromtimestamp(item_info[time_field] * 1e-3, UTC).isoformat()
+
                 # Add portal item link
                 if result.get("id"):
                     # Default to ArcGIS Online, but could be customized for Enterprise
@@ -980,7 +986,7 @@ def search_webmaps_and_layers(
         query: Search keywords (e.g., "forest", "population", "traffic")
         item_types: List of item types to search for. Common types:
                    - ["Web Map"] for webmaps only
-                   - ["Feature Layer", "Feature Service"] for feature layers
+                   - ["Feature Collection", "Feature Service"] for feature layers
                    - ["Map Service", "Image Service"] for other services
                    If not specified, searches all types
         bbox: Bounding box to filter results spatially (format: "xmin,ymin,xmax,ymax" in WGS84)
