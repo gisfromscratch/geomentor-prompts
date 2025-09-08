@@ -348,7 +348,6 @@ def reverse_geocode_coordinates(latitude: float, longitude: float) -> Dict:
             "formatted_address": None
         }
 
-
 def get_elevation(latitude: float, longitude: float) -> Dict:
     """
     Get elevation data above mean sea level for coordinates using ArcGIS Location Platform Elevation Services
