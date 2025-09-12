@@ -47,7 +47,7 @@ GeoMentor Prompts is a **comprehensive geospatial AI ecosystem** that combines t
 ### For Geo Agents
 1. **Navigate** to the specific agent directory (e.g., `src/agents/wildfire_detection/`)
 2. **Install dependencies** using `uv sync` from the agent's requirements
-3. **Run the agent** using `python main.py` or import the agent classes in your applications
+3. **Run the agent** using `uv run python main.py` or import the agent classes in your applications
 4. **Customize rules** and environmental data sources for your specific use case
 
 ## ⚡ Features

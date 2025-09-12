@@ -129,13 +129,13 @@ The agent includes a mock implementation for testing and demonstration:
 cd src/agents/routing_agent
 
 # Run main demo (uses mock agent if ArcGIS not available)
-python main.py
+uv run python main.py
 
 # Run comprehensive test suite
-python test_scenarios.py
+uv run python test_scenarios.py
 
 # Test core functionality
-python -c "from routing_agent import LocationState; print('Core classes working!')"
+uv run python -c "from routing_agent import LocationState; print('Core classes working!')"
 ```
 
 ### With ArcGIS API for Python
@@ -148,7 +148,7 @@ cp .env.example .env
 # Edit .env with your ArcGIS credentials
 
 # Run with real ArcGIS services
-python main.py
+uv run python main.py
 ```
 
 ### Test Scenarios Include:

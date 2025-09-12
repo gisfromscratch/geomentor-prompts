@@ -116,12 +116,15 @@ class RoutingAgent:
         logger.info(f"Geocoding address: {address}")
         
         try:
-            # Use ArcGIS geocoding service
+            # Use ArcGIS geocoding service with the GIS instance's geocoder
+            from arcgis.geocoding import Geocoder
+            geocoder = Geocoder(gis=self.gis)
+            
             geocode_result = geocode(
                 address=f"{address}, {country}", 
                 max_locations=1,
                 as_featureset=True,
-                gis=self.gis
+                geocoder=geocoder
             )
             
             if len(geocode_result.features) == 0:
