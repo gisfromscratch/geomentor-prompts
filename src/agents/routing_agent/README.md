@@ -25,7 +25,7 @@ This agent represents a prototype implementation of problem-solving in GeoAI, sp
 ## 📋 Prerequisites
 
 - Python 3.12+
-- ArcGIS API for Python (`pip install arcgis`)
+- ArcGIS API for Python (`uv add arcgis`)
 - Valid ArcGIS credentials (username/password or API key)
 - Active ArcGIS Location Platform subscription
 
@@ -34,7 +34,7 @@ This agent represents a prototype implementation of problem-solving in GeoAI, sp
 1. Install dependencies:
 ```bash
 cd src/agents/routing_agent
-pip install -e .
+uv sync
 ```
 
 2. Copy environment configuration:
@@ -141,7 +141,7 @@ python -c "from routing_agent import LocationState; print('Core classes working!
 ### With ArcGIS API for Python
 ```bash
 # Install ArcGIS dependencies (requires valid license)
-pip install arcgis
+uv add arcgis
 
 # Configure credentials in .env
 cp .env.example .env
