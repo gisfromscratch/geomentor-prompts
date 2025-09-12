@@ -1,0 +1,9 @@
+requests>=2.32.0
+python-dotenv>=1.0.0
+dataclasses-json>=0.6.0
+
+[dev]
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=23.0.0
+flake8>=6.0.0
