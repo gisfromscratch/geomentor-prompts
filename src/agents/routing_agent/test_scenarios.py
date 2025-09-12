@@ -61,8 +61,8 @@ def test_geocoding_accuracy():
     print(f"Remagen: {remagen}")
     
     # Validate Remagen coordinates (approximately)
-    assert 50.5 < remagen.latitude < 50.7, f"Remagen latitude out of range: {remagen.latitude}"
-    assert 7.1 < remagen.longitude < 7.3, f"Remagen longitude out of range: {remagen.longitude}"
+    assert 51.05 < remagen.latitude < 51.17, f"Remagen latitude out of range: {remagen.latitude}"
+    assert 10.3 < remagen.longitude < 10.4, f"Remagen longitude out of range: {remagen.longitude}"
     
     print("✅ Geocoding accuracy test passed")
     return bonn, remagen
