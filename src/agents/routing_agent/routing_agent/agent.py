@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 try:
     from arcgis.gis import GIS
     from arcgis.geocoding import geocode
-    from arcgis.network import RouteLayer
+    from arcgis.network.analysis import find_routes
     from arcgis.geometry import Point, Polyline
     from arcgis.features import FeatureLayer, FeatureSet, Feature
 except ImportError as e:
@@ -63,7 +63,7 @@ class RoutingAgent:
         # Get credentials from environment if not provided
         self.username = username or os.getenv("ARCGIS_USERNAME")
         self.password = password or os.getenv("ARCGIS_PASSWORD")
-        self.api_key = api_key or os.getenv("ARCGIS_API_KEY")
+        self.api_key = api_key or os.getenv("ARCGIS_API_KEY") or os.getenv("arcgis_api_key")
         self.org_url = org_url or os.getenv("ARCGIS_ORG_URL", "https://www.arcgis.com")
         
         # Configuration
@@ -116,15 +116,11 @@ class RoutingAgent:
         logger.info(f"Geocoding address: {address}")
         
         try:
-            # Use ArcGIS geocoding service with the GIS instance's geocoder
-            from arcgis.geocoding import Geocoder
-            geocoder = Geocoder(gis=self.gis)
-            
+            # Use ArcGIS geocoding service with the default GIS instance's geocoder            
             geocode_result = geocode(
                 address=f"{address}, {country}", 
                 max_locations=1,
-                as_featureset=True,
-                geocoder=geocoder
+                as_featureset=True
             )
             
             if len(geocode_result.features) == 0:
@@ -164,43 +160,47 @@ class RoutingAgent:
         logger.info(f"Computing route from {start_state} to {end_state}")
         
         try:
-            # Create route layer for analysis
-            from arcgis.network import RouteLayer
-            route_layer = RouteLayer(self.route_service, gis=self.gis)
-            
-            # Define stops as Point geometries
-            stops = [
-                Point({"x": start_state.longitude, "y": start_state.latitude, 
-                      "spatialReference": {"wkid": 4326}}),
-                Point({"x": end_state.longitude, "y": end_state.latitude,
-                      "spatialReference": {"wkid": 4326}})
-            ]
+            # Using find routes directly
+            # Define stops as a FeatureSet
+            stops = FeatureSet([
+                {
+                    "geometry": {
+                        "x": start_state.longitude,
+                        "y": start_state.latitude,
+                        "spatialReference": {"wkid": 4326}
+                    }
+                },
+                {
+                    "geometry": {
+                        "x": end_state.longitude,
+                        "y": end_state.latitude,
+                        "spatialReference": {"wkid": 4326}
+                    }
+                }
+            ])
             
             # Solve the route
-            route_result = route_layer.solve(
+            route_result = find_routes(
                 stops=stops,
-                travel_mode=self.travel_mode,
-                return_directions=True,
-                return_routes=True,
-                return_stops=True
+                #travel_mode=self.travel_mode,
             )
             
             # Extract route information
-            if not route_result.routes.features:
+            if not route_result.output_routes.features:
                 raise ValueError("No route found between locations")
-            
-            route_feature = route_result.routes.features[0]
+
+            route_feature = route_result.output_routes.features[0]
             route_attributes = route_feature.attributes
             route_geometry = route_feature.geometry
             
             # Get total metrics
-            total_time_minutes = route_attributes.get('Total_TravelTime', 0)  # in minutes
-            total_distance_km = route_attributes.get('Total_Length', 0)  # in km
+            total_time_minutes = route_attributes.get('Total_Minutes', 0)  # in minutes
+            total_distance_km = route_attributes.get('Total_Kilometers', 0)  # in km
             
             # Extract route segments from directions
             route_segments = []
-            if hasattr(route_result, 'directions') and route_result.directions:
-                directions = route_result.directions[0]  # First route's directions
+            if hasattr(route_result, 'output_directions') and route_result.output_directions:
+                directions = route_result.output_directions
                 if hasattr(directions, 'features'):
                     for i, direction_feature in enumerate(directions.features):
                         dir_attrs = direction_feature.attributes
@@ -218,7 +218,8 @@ class RoutingAgent:
                         else:
                             # Approximate end location from geometry
                             if hasattr(segment_geometry, 'paths') and segment_geometry.paths:
-                                last_point = segment_geometry.paths[0][-1]
+                                segment_polyline = Polyline(segment_geometry)
+                                last_point = segment_polyline.last_point
                                 segment_end = LocationState(
                                     latitude=last_point[1],
                                     longitude=last_point[0]
@@ -230,7 +231,7 @@ class RoutingAgent:
                             start_location=segment_start,
                             end_location=segment_end,
                             travel_time_minutes=dir_attrs.get('ElapsedTime', 0),
-                            distance_km=dir_attrs.get('Length', 0),
+                            distance_km=dir_attrs.get('DriveDistance', 0),
                             instructions=dir_attrs.get('Text', ''),
                             geometry=segment_geometry.as_dict() if hasattr(segment_geometry, 'as_dict') else None
                         )
@@ -264,7 +265,7 @@ class RoutingAgent:
                 target_state=end_state,
                 confidence=confidence,
                 timestamp=datetime.now(),
-                route_geometry=route_geometry.as_dict() if hasattr(route_geometry, 'as_dict') else None
+                route_geometry=route_geometry
             )
             
             logger.info(f"Route computed: {routing_decision.summary()}")
