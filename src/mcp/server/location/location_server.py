@@ -8,6 +8,7 @@ from basemap_styles import BasemapSubStyle, SUPPORTED_BASEMAP_STYLES
 from location_config import ArcGISApiKeyManager
 from location_server_class import LocationServer
 from server_config import LocationServerConfig
+from starlette.middleware.cors import CORSMiddleware
 
 
 # Create the reusable LocationServer instance
@@ -17,6 +18,41 @@ mcp = location_server.get_server()
 
 # Cache for place categories - populated during server startup
 _categories_cache = None
+
+
+def create_mcp_app():
+    """
+    Create and return a streamable-http MCP Location Server application instance.
+    
+    This function demonstrates how to use the LocationServer class
+    with a custom configuration for different deployment scenarios.
+
+    Run with: `uv run uvicorn --factory location_server:create_mcp_app --host 0.0.0.0 --port 8000`
+    """
+    app_config = LocationServerConfig.get_server_config(
+        transport="streamable-http"  # Example of overriding transport
+    )
+    
+    # Create the LocationServer instance with the specified configuration
+    server = LocationServer(app_config)
+    mcp_server = server.get_server()
+    server.register_tools_and_resources()
+    
+    # Copy all tools from the global mcp instance to the new mcp_server
+    # This ensures the local mcp_server has the same tools registered as the global mcp variable
+    for mcp_tool in mcp._tool_manager.list_tools():
+        mcp_server._tool_manager.add_tool(fn=mcp_tool.fn, name=mcp_tool.name, description=mcp_tool.description, annotations=mcp_tool.annotations)
+    
+    # Add CORS middleware to allow cross-origin requests (adjust settings as needed for security)
+    app = mcp_server.streamable_http_app()
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Adjust this to your needs
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
+    return app
 
 def geocode_address(address: str) -> Dict:
     """

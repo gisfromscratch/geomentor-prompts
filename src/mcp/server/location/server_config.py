@@ -17,7 +17,7 @@ class MCPServerConfig:
     description: str = "A MCP demo server for location-based services"
     version: str = "0.1.0"
     port: int = 8000
-    transport: str = "stdio"  # "stdio" or "sse"
+    transport: str = "stdio"  # "stdio" or "sse" or "streamable-http"
     
     def to_dict(self) -> Dict:
         """Convert configuration to dictionary for FastMCP initialization"""
