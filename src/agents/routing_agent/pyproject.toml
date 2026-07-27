@@ -1,0 +1,20 @@
+[project]
+name = "routing-agent"
+version = "0.1.0a"
+description = "Routing Agent for problem-solving using ArcGIS Location Platform"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "arcgis>=2.3.0",
+    "requests>=2.32.0",
+    "python-dotenv>=1.0.0",
+    "dataclasses-json>=0.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]

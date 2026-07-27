@@ -407,3 +407,6 @@ src/mcp/test_categories_minimal.py
 src/mcp/test_import.py  
 src/mcp/test_validation.py
 src/mcp/test_final.py
+
+# Environment files (contains API keys)
+src/agents/wildfire_detection/.env

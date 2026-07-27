@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+wildfire_agent/__init__.py
+wildfire_agent/agent.py
+wildfire_agent/location.py
+wildfire_agent/tests/test_wildfire_agent.py
+wildfire_detection.egg-info/PKG-INFO
+wildfire_detection.egg-info/SOURCES.txt
+wildfire_detection.egg-info/dependency_links.txt
+wildfire_detection.egg-info/requires.txt
+wildfire_detection.egg-info/top_level.txt

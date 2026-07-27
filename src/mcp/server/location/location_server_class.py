@@ -129,7 +129,7 @@ class LocationServer:
                 return False
                 
             # Validate transport
-            if self.config.transport not in ["stdio", "sse"]:
+            if self.config.transport not in ["stdio", "sse", "streamable-http"]:
                 self.logger.error(f"Unsupported transport: {self.config.transport}")
                 return False
                 
