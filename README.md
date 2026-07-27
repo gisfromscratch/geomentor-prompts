@@ -12,8 +12,9 @@ GeoMentor Prompts is a **comprehensive geospatial AI ecosystem** that combines t
 ## Scope and Usage
 This library is published as **free and open‑source software** under the `Apache‑2.0` licence. It is developed and maintained by an individual without any commercial intent – no fees, no monetisation, and no donations are solicited or accepted.
 
-**For the purposes of the EU Cyber Resilience Act (Regulation (EU) 2024/2847), this software is NOT “made available on the market in the course of a commercial activity” (see Article 3(22) and Recitals 15, 18). Therefore, the obligations that apply to manufacturers (such as CE marking, conformity assessment, and formal vulnerability handling) do not apply to the provision of these library.**
+**For the purposes of the EU Cyber Resilience Act (Regulation (EU) 2024/2847), this software is NOT “made available on the market in the course of a commercial activity” (see Article 3(22) and Recitals 15, 18). Therefore, the obligations that apply to manufacturers (such as CE marking, conformity assessment, and formal vulnerability handling) do not apply to the provision of this library.**
 
+_This section is provided for informational purposes only and does not constitute legal advice. If you have questions about regulatory compliance, consult qualified legal counsel._
 Anyone who integrates this library into their own commercial products or services are responsible for ensuring that their overall system complies with all applicable regulations, including the Cyber Resilience Act where relevant.
 
 ## What You'll Find
